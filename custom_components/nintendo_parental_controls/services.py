@@ -39,6 +39,7 @@ from .const import (
 )
 from .coordinator import NintendoParentalControlsConfigEntry
 from .sensor import NintendoParentalControlsSensor
+from .util import handle_device_errors
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -186,7 +187,8 @@ async def async_add_bonus_time(call: ServiceCall) -> None:
     device_id: str = data[ATTR_DEVICE_ID]
     bonus_time: int = data[ATTR_BONUS_TIME]
     device = _get_nintendo_device(call.hass, device_id)
-    return await device.add_extra_time(bonus_time)
+    with handle_device_errors():
+        await device.add_extra_time(bonus_time)
 
 
 async def async_update_pin_code(call: ServiceCall) -> None:
@@ -200,7 +202,8 @@ async def async_update_pin_code(call: ServiceCall) -> None:
             translation_key="invalid_pin_length",
         )
     device = _get_nintendo_device(call.hass, device_id)
-    return await device.set_new_pin(new_pin)
+    with handle_device_errors():
+        await device.set_new_pin(new_pin)
 
 
 async def async_get_player_usage(call: ServiceCall) -> dict:
@@ -232,34 +235,35 @@ async def async_set_per_day_controls(call: ServiceCall) -> None:
     bedtime_enabled = (
         data.get(ATTR_BEDTIME_START) and data.get(ATTR_BEDTIME_END)
     ) is not None
-    try:
-        await device.set_daily_restrictions(
-            enabled=restriction_enabled,
-            bedtime_enabled=bedtime_enabled,
-            day_of_week=data[ATTR_DAY_OF_WEEK],
-            bedtime_start=data.get(ATTR_BEDTIME_END),
-            bedtime_end=data.get(ATTR_BEDTIME_START),
-            max_daily_playtime=data.get(ATTR_MAX_PLAY_TIME),
-        )
-    except InvalidDeviceStateError as err:
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="requires_daily_restrictions",
-        ) from err
-    except ExtraPlayingTimeActiveError as err:
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="extra_playing_time_active",
-        ) from err
-    except BedtimeOutOfRangeError as err:
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="bedtime_out_of_range",
-            translation_placeholders={
-                "bedtime_alarm_min": BEDTIME_ALARM_MIN,
-                "bedtime_alarm_max": BEDTIME_ALARM_MAX,
-                "bedtime_end_time_min": BEDTIME_END_TIME_MIN,
-                "bedtime_end_time_max": BEDTIME_END_TIME_MAX,
-                "bedtime_alarm_disable": BEDTIME_ALARM_DISABLE,
-            },
-        ) from err
+    with handle_device_errors():
+        try:
+            await device.set_daily_restrictions(
+                enabled=restriction_enabled,
+                bedtime_enabled=bedtime_enabled,
+                day_of_week=data[ATTR_DAY_OF_WEEK],
+                bedtime_start=data.get(ATTR_BEDTIME_END),
+                bedtime_end=data.get(ATTR_BEDTIME_START),
+                max_daily_playtime=data.get(ATTR_MAX_PLAY_TIME),
+            )
+        except InvalidDeviceStateError as err:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="requires_daily_restrictions",
+            ) from err
+        except ExtraPlayingTimeActiveError as err:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="extra_playing_time_active",
+            ) from err
+        except BedtimeOutOfRangeError as err:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="bedtime_out_of_range",
+                translation_placeholders={
+                    "bedtime_alarm_min": BEDTIME_ALARM_MIN,
+                    "bedtime_alarm_max": BEDTIME_ALARM_MAX,
+                    "bedtime_end_time_min": BEDTIME_END_TIME_MIN,
+                    "bedtime_end_time_max": BEDTIME_END_TIME_MAX,
+                    "bedtime_alarm_disable": BEDTIME_ALARM_DISABLE,
+                },
+            ) from err

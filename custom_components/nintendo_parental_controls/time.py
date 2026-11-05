@@ -25,6 +25,7 @@ from .const import (
 )
 from .coordinator import NintendoParentalControlsConfigEntry, NintendoUpdateCoordinator
 from .entity import NintendoDevice, async_setup_dynamic_entities
+from .util import handle_device_errors
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -103,30 +104,31 @@ class NintendoParentalControlsTimeEntity(NintendoDevice, TimeEntity):
     @override
     async def async_set_value(self, value: time) -> None:
         """Update the value."""
-        try:
-            await self.entity_description.set_value_fn(self._device, value)
-        except BedtimeOutOfRangeError as exc:
-            if (
-                self.entity_description.key
-                == NintendoParentalControlsTime.BEDTIME_END_TIME
-            ):
+        with handle_device_errors():
+            try:
+                await self.entity_description.set_value_fn(self._device, value)
+            except BedtimeOutOfRangeError as exc:
+                if (
+                    self.entity_description.key
+                    == NintendoParentalControlsTime.BEDTIME_END_TIME
+                ):
+                    raise ServiceValidationError(
+                        translation_domain=DOMAIN,
+                        translation_key="bedtime_end_time_out_of_range",
+                        translation_placeholders={
+                            "value": value.strftime("%H:%M"),
+                            "bedtime_end_time_max": BEDTIME_END_TIME_MAX,
+                            "bedtime_end_time_min": BEDTIME_END_TIME_MIN,
+                            "bedtime_alarm_disable": BEDTIME_ALARM_DISABLE,
+                        },
+                    ) from exc
                 raise ServiceValidationError(
                     translation_domain=DOMAIN,
-                    translation_key="bedtime_end_time_out_of_range",
+                    translation_key="bedtime_alarm_out_of_range",
                     translation_placeholders={
                         "value": value.strftime("%H:%M"),
-                        "bedtime_end_time_max": BEDTIME_END_TIME_MAX,
-                        "bedtime_end_time_min": BEDTIME_END_TIME_MIN,
+                        "bedtime_alarm_max": BEDTIME_ALARM_MAX,
+                        "bedtime_alarm_min": BEDTIME_ALARM_MIN,
                         "bedtime_alarm_disable": BEDTIME_ALARM_DISABLE,
                     },
                 ) from exc
-            raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="bedtime_alarm_out_of_range",
-                translation_placeholders={
-                    "value": value.strftime("%H:%M"),
-                    "bedtime_alarm_max": BEDTIME_ALARM_MAX,
-                    "bedtime_alarm_min": BEDTIME_ALARM_MIN,
-                    "bedtime_alarm_disable": BEDTIME_ALARM_DISABLE,
-                },
-            ) from exc

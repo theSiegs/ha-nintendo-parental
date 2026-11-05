@@ -70,3 +70,20 @@ generates it), and update `quality_scale.yaml` and the documentation in
   `invalid_token`, which is why a single 401 must not start reauth).
 - `reauthentication-flow` is already marked done in `quality_scale.yaml`; this
   makes it work after setup too.
+
+### 5. Translate library errors raised by actions
+
+- New `util.handle_device_errors()` context manager maps
+  `ExtraPlayingTimeActiveError`, `InvalidDeviceStateError`,
+  `BedtimeOutOfRangeError`, `DailyPlaytimeOutOfRangeError`,
+  `InputValidationError` to `ServiceValidationError`, and `DeviceError`,
+  `HttpException`, `aiohttp.ClientError`, `TimeoutError` to
+  `HomeAssistantError`, all with translation keys. Used by the number, switch,
+  select and time setters and by `add_bonus_time`, `update_pin_code` and
+  `update_daily_restrictions` (whose specific messages are kept). Marks
+  `action-exceptions` as done.
+- Issue: none specific; it is the `action-exceptions` rule (todo, "Library
+  errors are not handled in custom actions and in switch, number and select
+  actions") in `quality_scale.yaml`. Possibly related:
+  [#167425](https://github.com/home-assistant/core/issues/167425) (bonus time
+  silently doing nothing).

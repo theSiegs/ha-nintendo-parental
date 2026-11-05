@@ -18,6 +18,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import NintendoParentalControlsConfigEntry, NintendoUpdateCoordinator
 from .entity import NintendoDevice, async_setup_dynamic_entities
+from .util import handle_device_errors
 
 PARALLEL_UPDATES = 1
 
@@ -93,4 +94,5 @@ class NintendoParentalControlsNumberEntity(NintendoDevice, NumberEntity):
     @override
     async def async_set_native_value(self, value: float) -> None:
         """Update entity state."""
-        await self.entity_description.set_native_value_fn(self._device, value)
+        with handle_device_errors():
+            await self.entity_description.set_native_value_fn(self._device, value)

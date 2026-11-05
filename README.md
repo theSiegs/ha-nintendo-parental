@@ -88,6 +88,16 @@ starts (a repair notification asks you to sign in again). If the new login
 works, it simply retries, because Nintendo also rejects valid tokens now and
 then (HTTP 401 `invalid_token`).
 
+### Clear errors from actions and controls
+
+Changing the number, switch, select or time entities, or calling
+`add_bonus_time`, `update_pin_code` or `update_daily_restrictions`, used to
+fail with a raw library exception (or an "unknown error" in the UI) when
+Nintendo refused the change, for example while extra playing time is active.
+These now raise translated errors: a validation error for things the user can
+fix (extra playing time active, wrong restriction mode, out-of-range values)
+and a Home Assistant error for communication problems.
+
 ## Development
 
 Tests are core's own tests for the integration, plus tests for each fix. They

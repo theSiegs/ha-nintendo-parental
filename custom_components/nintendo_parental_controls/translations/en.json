@@ -104,14 +104,29 @@
     "bedtime_out_of_range": {
       "message": "The specified bedtime start or end time is outside of the allowed range. Please ensure bedtime start is between {bedtime_alarm_min} and {bedtime_alarm_max}, or {bedtime_alarm_disable}, and bedtime end is between {bedtime_end_time_min} and {bedtime_end_time_max}."
     },
+    "communication_error": {
+      "message": "Error communicating with Nintendo: {error}"
+    },
     "config_entry_not_found": {
       "message": "Config entry not found."
+    },
+    "daily_playtime_out_of_range": {
+      "message": "{value} minutes is not accepted. The daily playtime limit must be between 0 and 360 minutes, or -1 to remove the limit."
+    },
+    "device_error": {
+      "message": "The Nintendo Switch rejected the change: {error}"
     },
     "extra_playing_time_active": {
       "message": "Extra playing time is currently active. Please wait until it expires before updating daily restrictions."
     },
+    "extra_playing_time_active_settings": {
+      "message": "Extra playing time is active for today. Settings can't be changed until it expires."
+    },
     "invalid_device": {
       "message": "The specified device is not a Nintendo device."
+    },
+    "invalid_device_state": {
+      "message": "This change is not possible with the current restriction mode of the Nintendo Switch."
     },
     "invalid_entity": {
       "message": "The selected sensor is invalid, make sure you are selecting a Nintendo Parental Controls sensor."
@@ -121,6 +136,9 @@
     },
     "invalid_player": {
       "message": "The selected sensor is not a player sensor entity. Make sure you have selected the used screen time sensor for a specific player."
+    },
+    "invalid_value": {
+      "message": "{value} is not an accepted value."
     },
     "no_devices_found": {
       "message": "No Nintendo devices found for this account."

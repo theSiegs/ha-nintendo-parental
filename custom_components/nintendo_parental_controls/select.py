@@ -14,6 +14,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import NintendoParentalControlsConfigEntry, NintendoUpdateCoordinator
 from .entity import NintendoDevice, async_setup_dynamic_entities
+from .util import handle_device_errors
 
 PARALLEL_UPDATES = 1
 
@@ -96,5 +97,6 @@ class NintendoParentalSelectEntity(NintendoDevice, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
         enum_option = self.entity_description.options_enum[option.upper()]
-        await self.entity_description.set_option_fn(self._device, enum_option)
+        with handle_device_errors():
+            await self.entity_description.set_option_fn(self._device, enum_option)
         await self.coordinator.async_request_refresh()

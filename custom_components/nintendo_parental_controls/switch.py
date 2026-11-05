@@ -18,6 +18,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import NintendoParentalControlsConfigEntry, NintendoUpdateCoordinator
 from .entity import NintendoDevice, async_setup_dynamic_entities
+from .util import handle_device_errors
 
 PARALLEL_UPDATES = 1
 
@@ -91,9 +92,11 @@ class NintendoParentalControlsSwitchEntity(NintendoDevice, SwitchEntity):
     @override
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        await self.entity_description.turn_on_fn(self._device)
+        with handle_device_errors():
+            await self.entity_description.turn_on_fn(self._device)
 
     @override
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        await self.entity_description.turn_off_fn(self._device)
+        with handle_device_errors():
+            await self.entity_description.turn_off_fn(self._device)
