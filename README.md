@@ -58,6 +58,18 @@ to stay on up to the hold-over period after it stops. The first poll after a
 restart only records a baseline, and the daily reset at midnight does not
 count as play.
 
+### New consoles and players are added without a reload
+
+Core only creates entities at setup, so a console paired later, a new player
+profile, or players Nintendo only starts returning later (see below) needed
+an integration reload. Entities for them are now added on the next poll.
+([core issue #182387](https://github.com/home-assistant/core/issues/182387))
+
+Note: the library (`pynintendoparental`) only learns about players from the
+latest monthly summary, which Nintendo returns as "not found" until a console
+has about a month of data. Until then no per-player entities exist; with
+this change they appear on their own once the summary becomes available.
+
 ## Development
 
 Tests are core's own tests for the integration, plus tests for each fix. They

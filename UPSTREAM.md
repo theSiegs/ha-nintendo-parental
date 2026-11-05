@@ -25,3 +25,16 @@ generates it), and update `quality_scale.yaml` and the documentation in
   them; it could become a separate timestamp sensor) and about inferring
   state rather than reading it from the API.
 - Docs: document the binary sensors and the option on home-assistant.io.
+
+### 2. Add entities for consoles and players that appear after setup
+
+- Each platform registers a coordinator listener that adds entities for new
+  consoles and new players (`async_setup_dynamic_entities` in `entity.py`).
+  Marks the `dynamic-devices` quality scale rule as done.
+- Issue: [#182387](https://github.com/home-assistant/core/issues/182387).
+- Related library change (separate PR to `pantherale0/pynintendoparental`):
+  `Device._hydrate_players_from_monthly_summary` is the only place players are
+  created, so consoles without a monthly summary (HTTP 404
+  `resource_is_not_found`) have no players. Creating players from the daily
+  summary as well (`Player.from_device_daily_summary` already exists) would
+  fix the rest of #182387.

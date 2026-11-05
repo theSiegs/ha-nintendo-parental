@@ -20,7 +20,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import NintendoParentalControlsConfigEntry, NintendoUpdateCoordinator
-from .entity import NintendoDevice
+from .entity import NintendoDevice, async_setup_dynamic_entities
 
 # Coordinator is used to centralize the data updates
 PARALLEL_UPDATES = 0
@@ -100,21 +100,20 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
-    entities: list[NintendoDevice] = []
-    entities.extend(
-        NintendoParentalControlsDeviceSensorEntity(entry.runtime_data, device, sensor)
-        for device in entry.runtime_data.api.devices.values()
-        for sensor in DEVICE_SENSOR_DESCRIPTIONS
-    )
-    for device in entry.runtime_data.api.devices.values():
-        entities.extend(
+    async_setup_dynamic_entities(
+        entry,
+        async_add_entities,
+        lambda coordinator, device: (
+            NintendoParentalControlsDeviceSensorEntity(coordinator, device, sensor)
+            for sensor in DEVICE_SENSOR_DESCRIPTIONS
+        ),
+        lambda coordinator, device, player: (
             NintendoParentalControlsPlayerSensorEntity(
-                entry.runtime_data, device, player, sensor
+                coordinator, device, player, sensor
             )
-            for player in device.players
             for sensor in PLAYER_SENSOR_DESCRIPTIONS
-        )
-    async_add_entities(entities)
+        ),
+    )
 
 
 class NintendoParentalControlsDeviceSensorEntity(NintendoDevice, SensorEntity):

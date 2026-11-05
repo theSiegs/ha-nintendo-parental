@@ -16,7 +16,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import ATTR_LAST_INCREASE
 from .coordinator import NintendoParentalControlsConfigEntry, NintendoUpdateCoordinator
-from .entity import NintendoDevice
+from .entity import NintendoDevice, async_setup_dynamic_entities
 
 # Coordinator is used to centralize the data updates
 PARALLEL_UPDATES = 0
@@ -46,15 +46,16 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the binary sensor platform."""
-    coordinator = entry.runtime_data
-    entities: list[NintendoDevice] = []
-    for device in coordinator.api.devices.values():
-        entities.append(NintendoDevicePlayingBinarySensor(coordinator, device))
-        entities.extend(
+    async_setup_dynamic_entities(
+        entry,
+        async_add_entities,
+        lambda coordinator, device: [
+            NintendoDevicePlayingBinarySensor(coordinator, device)
+        ],
+        lambda coordinator, device, player: [
             NintendoPlayerPlayingBinarySensor(coordinator, device, player)
-            for player in device.players
-        )
-    async_add_entities(entities)
+        ],
+    )
 
 
 class NintendoPlayingBinarySensor(NintendoDevice, BinarySensorEntity):
