@@ -112,3 +112,13 @@ generates it), and update `quality_scale.yaml` and the documentation in
   the monthly summary. Then the coordinator can request it once an hour.
   The same change should create players from the daily summary (see 2).
 - Issue: none open.
+
+### 8. Match the `add_bonus_time` selector to its schema
+
+- `services.yaml` offered -1 to 1440 minutes while the action schema only
+  accepts 5 to 30 (as its description says), so most values in the UI failed
+  validation. The selector is now 5 to 30.
+- Issue: none open. Possibly related to
+  [#156288](https://github.com/home-assistant/core/issues/156288) /
+  [#167425](https://github.com/home-assistant/core/issues/167425) (bonus time
+  reported as not working).
