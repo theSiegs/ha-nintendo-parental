@@ -1,0 +1,18 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "player_playing": {
+        "default": "mdi:controller-off",
+        "state": {
+          "on": "mdi:controller"
+        }
+      },
+      "playing": {
+        "default": "mdi:controller-off",
+        "state": {
+          "on": "mdi:controller"
+        }
+      }
+    }
+  }
+}

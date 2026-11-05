@@ -31,6 +31,24 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "player_playing": {
+        "name": "{nickname} playing",
+        "state_attributes": {
+          "last_increase": {
+            "name": "Last play time increase"
+          }
+        }
+      },
+      "playing": {
+        "name": "Playing",
+        "state_attributes": {
+          "last_increase": {
+            "name": "Last play time increase"
+          }
+        }
+      }
+    },
     "number": {
       "today_max_screentime": {
         "name": "Max screentime today"
@@ -112,6 +130,18 @@
     },
     "update_required": {
       "message": "The Nintendo Switch parental controls integration requires an update due to changes in Nintendo's API."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "playing_holdover": "Playing hold-over"
+        },
+        "data_description": {
+          "playing_holdover": "Nintendo does not report what is being played right now, so play is inferred from screen time growing. Consoles upload their screen time every few minutes, so the playing sensors stay on for this long after the last increase."
+        }
+      }
     }
   },
   "selector": {

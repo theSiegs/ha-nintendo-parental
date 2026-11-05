@@ -37,7 +37,26 @@ core's: `pynintendoparental==2.6.2` and `pynintendoauth==1.0.3`.
 
 ## Changes from core
 
-None yet: this is core's integration as released in 2026.11.0.
+### Playing now (new binary sensors)
+
+| Entity | Unique ID |
+| --- | --- |
+| `binary_sensor.<switch>_playing` | `{device_id}_playing` |
+| `binary_sensor.<switch>_<player>_playing` | `{device_id}_{player_id}_playing` |
+
+Both have a `last_increase` attribute: when the play time was last seen
+growing (UTC), or `null` if not since Home Assistant started.
+
+**These are inferred.** Nintendo publishes no "now playing" signal. The
+sensors turn on when the day's play time (for the console, or for that
+player) grows between two polls, and stay on for a hold-over period after the
+last increase, because the console only uploads its play time every few
+minutes. The hold-over defaults to 10 minutes and can be changed under
+**Settings > Devices & services > Nintendo Switch parental controls >
+Configure**. Expect the sensors to turn on a few minutes after play starts and
+to stay on up to the hold-over period after it stops. The first poll after a
+restart only records a baseline, and the daily reset at midnight does not
+count as play.
 
 ## Development
 
