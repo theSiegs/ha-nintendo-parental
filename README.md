@@ -129,6 +129,16 @@ a1b2c3d4e5f60708:
       whitelisted: true
 ```
 
+## Known limitations
+
+- **Monthly summary is still fetched on every poll.** `pynintendoparental`
+  (2.6.2, and 2.6.3, the latest release) fetches the monthly summary inside
+  `Device.update()` on every update, which costs two extra requests per
+  console every 60 seconds, and offers no way to skip it. Fetching it at most
+  hourly needs a library change; see [UPSTREAM.md](UPSTREAM.md). This
+  repository does not monkey-patch the library to work around it.
+- The playing sensors are inferred from play time; see above.
+
 ## Development
 
 Tests are core's own tests for the integration, plus tests for each fix. They

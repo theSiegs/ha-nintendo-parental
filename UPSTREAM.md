@@ -97,3 +97,18 @@ generates it), and update `quality_scale.yaml` and the documentation in
 - Issue: none open. Core may prefer changing the shape outright (a breaking
   change with a release note) over a flag; the flag keeps this repository a
   drop-in replacement.
+
+### 7. Fetch the monthly summary at most hourly (blocked on the library)
+
+- Not implemented. `Device.update()` in `pynintendoparental` 2.6.2 (and 2.6.3)
+  always runs `get_monthly_summary()` alongside the daily summary, settings and
+  device fetches: two extra requests per console per 60 s poll for data that
+  changes once a month. `NintendoParental.update()` has no parameter to skip
+  it, and the integration would have to replace library methods to throttle
+  it.
+- Needed first, in `pantherale0/pynintendoparental`: an option such as
+  `NintendoParental.update(monthly_summary=False)` /
+  `Device.update(monthly_summary=False)`, or a built-in refresh interval for
+  the monthly summary. Then the coordinator can request it once an hour.
+  The same change should create players from the daily summary (see 2).
+- Issue: none open.
