@@ -12,6 +12,15 @@ files back to `homeassistant/components/nintendo_parental_controls` and
 generates it), and update `quality_scale.yaml` and the documentation in
 `home-assistant.io` where noted.
 
+Core's own tests for the integration pass unchanged at every commit, except
+for one test-fixture change that comes with PR 3 (the mocked client runs
+device callbacks on `update()`, as the library does). Tests run with
+`pytest-homeassistant` 2026.11.0; `pytest-homeassistant-custom-component` has
+no 2026.11 release and now points to that package.
+
+The PRs are independent except where noted: 9 (diagnostics) reports fields
+added by 1 and 3, and 7 needs a library release first.
+
 ## Candidate pull requests
 
 ### 1. Inferred "playing" binary sensors

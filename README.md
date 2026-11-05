@@ -14,7 +14,9 @@ domain, plus a small set of fixes. Because the domain is the same:
 - **Uninstalling reverts to the built-in integration.** Remove it in HACS (or
   delete `custom_components/nintendo_parental_controls`) and restart; Home
   Assistant goes back to the core version with the same config entry. Entities
-  added by this copy (see below) become unavailable and can be deleted.
+  added by this copy (see below) become unavailable and can be deleted, and
+  automations that pass `key_by_player_id` to `device_usage_report` must drop
+  it, because core rejects the unknown field.
 
 Every fix here is meant to be upstreamed to Home Assistant core, one pull
 request per fix; see [UPSTREAM.md](UPSTREAM.md). Once a fix lands in core, it
@@ -32,8 +34,10 @@ If you have not set up the integration yet, add it from
 **Settings > Devices & services** as usual; setup is the same as for the
 built-in integration.
 
-Requires Home Assistant 2026.11.0 or newer. Library versions are the same as
-core's: `pynintendoparental==2.6.2` and `pynintendoauth==1.0.3`.
+Built from and tested against Home Assistant 2026.11.0. Library versions are
+the same as core's: `pynintendoparental==2.6.2` and `pynintendoauth==1.0.3`.
+Later Home Assistant releases may need this repository to be rebased on the
+newer core integration.
 
 ## Changes from core
 
@@ -84,7 +88,7 @@ Core only asked to reauthenticate if the token was rejected while Home
 Assistant was starting; at runtime it retried forever. Now, when Nintendo
 rejects the token while polling, the integration logs in again with the
 stored session token. If that is refused too, the reauthentication flow
-starts (a repair notification asks you to sign in again). If the new login
+starts and Home Assistant asks you to sign in to Nintendo again. If the new login
 works, it simply retries, because Nintendo also rejects valid tokens now and
 then (HTTP 401 `invalid_token`).
 
@@ -164,9 +168,16 @@ pip install -r requirements_test.txt
 pytest
 ```
 
-Core's tests are copied verbatim from `tests/components/nintendo_parental_controls`
-except that imports point at `custom_components.nintendo_parental_controls`
-instead of `homeassistant.components.nintendo_parental_controls`.
+Core's tests are copied from `tests/components/nintendo_parental_controls`
+with two changes:
+
+- imports point at `custom_components.nintendo_parental_controls` instead of
+  `homeassistant.components.nintendo_parental_controls`;
+- `conftest.py`: the mocked device keeps its registered callbacks and the
+  mocked `NintendoParental.update()` runs them, as the library does after a
+  successful update (needed for the stale-data fix).
+
+Core's test files are otherwise unchanged; each fix adds its own test file.
 
 `translations/en.json` is generated from `strings.json`:
 
