@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from . import setup_integration
+from .conftest import mock_device_callbacks
 from custom_components.nintendo_parental_controls.const import DOMAIN
 
 
@@ -49,6 +50,7 @@ def _device(device_id: str, name: str) -> Device:
     device.applications = ApplicationRegistry()
     device.players = players
     device.get_player = MagicMock(side_effect=players.get_player)
+    mock_device_callbacks(device)
     return device
 
 

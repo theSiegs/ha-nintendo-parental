@@ -70,6 +70,14 @@ latest monthly summary, which Nintendo returns as "not found" until a console
 has about a month of data. Until then no per-player entities exist; with
 this change they appear on their own once the summary becomes available.
 
+### Entities go unavailable when a console's data is stale
+
+The library catches and only logs errors while updating a single console, so
+core kept showing that console's old values as if they were current. Now a
+console whose update failed in the last poll has its entities marked
+unavailable until an update succeeds again (a warning is logged once when it
+happens, and an info message when it recovers).
+
 ## Development
 
 Tests are core's own tests for the integration, plus tests for each fix. They

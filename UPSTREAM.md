@@ -38,3 +38,20 @@ generates it), and update `quality_scale.yaml` and the documentation in
   `resource_is_not_found`) have no players. Creating players from the daily
   summary as well (`Player.from_device_daily_summary` already exists) would
   fix the rest of #182387.
+
+### 3. Mark entities unavailable when their console fails to update
+
+- `NintendoParental.update()` wraps each `Device.update()` in a broad
+  `except Exception` and only logs it, so stale data looked current. The
+  coordinator now registers a device callback (the library runs callbacks only
+  at the end of a successful `Device.update()`), keeps a last-successful-update
+  time per console, and `NintendoDevice.available` is false for consoles not
+  updated in the last poll. Marks `entity-unavailable` as done.
+- Tests: `conftest.py` makes the mocked client run device callbacks on
+  `update()`, like the library does.
+- Issue: none open; it is the `entity-unavailable` rule (todo) in the
+  integration's `quality_scale.yaml`. Related log noise:
+  [#160261](https://github.com/home-assistant/core/issues/160261).
+- A cleaner long-term fix is in the library: re-raise, or expose a per-device
+  "last updated" / "update failed" flag (`Device.stats_update_failed` exists
+  but only covers the remaining-time calculation).
