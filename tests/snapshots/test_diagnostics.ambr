@@ -1,0 +1,52 @@
+# serializer version: 1
+# name: test_diagnostics
+  dict({
+    'devices': list([
+      dict({
+        'alarms_enabled': True,
+        'applications': 1,
+        'available': True,
+        'bedtime_alarm': '19:00:00',
+        'bedtime_end': '07:00:00',
+        'device_id': 'testdevid',
+        'extra_playing_time': 30,
+        'firmware_version': '99.99.99',
+        'forced_termination_mode': True,
+        'generation': 'P00',
+        'last_increase': '2026-11-05T18:01:00+00:00',
+        'last_sync': 1793944800,
+        'last_update': '2026-11-05T18:01:00+00:00',
+        'limit_time': 120,
+        'model': 'Test Model',
+        'name': '**REDACTED**',
+        'play_timer_regulations': dict({
+          'restrictionMode': 'ALARM',
+          'timerMode': 'DAILY',
+        }),
+        'players': list([
+          dict({
+            'apps_played_today': 1,
+            'last_increase': None,
+            'nickname': '**REDACTED**',
+            'player_id': 'testplayerid',
+            'player_image': '**REDACTED**',
+            'playing': False,
+            'playing_time': 110,
+          }),
+        ]),
+        'playing': True,
+        'serial_number': '**REDACTED**',
+        'stats_update_failed': False,
+        'timer_mode': 'DAILY',
+        'today_playing_time': 115,
+        'today_time_remaining': 10,
+      }),
+    ]),
+    'entry_data': dict({
+      'session_token': '**REDACTED**',
+    }),
+    'last_update_success': True,
+    'options': dict({
+    }),
+  })
+# ---

@@ -129,6 +129,18 @@ a1b2c3d4e5f60708:
       whitelisted: true
 ```
 
+### Diagnostics
+
+Download diagnostics from the integration page. They show each console's
+state, update status, restriction settings and the playing inference, with
+the session token, console name, serial number, player nicknames and images
+redacted.
+
+### Smaller fixes
+
+- The `add_bonus_time` action's UI selector now allows 5 to 30 minutes,
+  matching what the action accepts (it offered -1 to 1440).
+
 ## Known limitations
 
 - **Monthly summary is still fetched on every poll.** `pynintendoparental`

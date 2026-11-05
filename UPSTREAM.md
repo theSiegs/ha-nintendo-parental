@@ -122,3 +122,12 @@ generates it), and update `quality_scale.yaml` and the documentation in
   [#156288](https://github.com/home-assistant/core/issues/156288) /
   [#167425](https://github.com/home-assistant/core/issues/167425) (bonus time
   reported as not working).
+
+### 9. Add diagnostics
+
+- `diagnostics.py` with per-console state, update status, play timer
+  regulations and play inference; redacts the session token, console name,
+  serial number, player nicknames and images. Marks `diagnostics` as done.
+  (In core, drop the play-inference and availability fields if PRs 1 and 3
+  are not merged first.)
+- Issue: none; it is the `diagnostics` rule (todo) in `quality_scale.yaml`.
