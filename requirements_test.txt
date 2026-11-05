@@ -1,0 +1,5 @@
+# Keep homeassistant and pytest-homeassistant on the same release.
+homeassistant==2026.11.0
+pytest-homeassistant==2026.11.0
+pynintendoauth==1.0.3
+pynintendoparental==2.6.2

@@ -1,0 +1,16 @@
+{
+  "domain": "nintendo_parental_controls",
+  "name": "Nintendo Switch parental controls",
+  "categories": ["media_entertainment.gaming"],
+  "codeowners": ["@pantherale0"],
+  "config_flow": true,
+  "connectivity": ["cloud"],
+  "documentation": "https://github.com/theSiegs/ha-nintendo-parental",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/theSiegs/ha-nintendo-parental/issues",
+  "loggers": ["pynintendoauth", "pynintendoparental"],
+  "quality_scale": "bronze",
+  "requirements": ["pynintendoauth==1.0.3", "pynintendoparental==2.6.2"],
+  "version": "2026.11.0"
+}

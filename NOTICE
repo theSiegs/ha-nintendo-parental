@@ -1,0 +1,15 @@
+ha-nintendo-parental
+Copyright the Home Assistant authors and contributors.
+
+This project is a modified copy of the "nintendo_parental_controls" integration
+from Home Assistant Core (https://github.com/home-assistant/core), taken from
+release 2026.11.0 (homeassistant/components/nintendo_parental_controls and
+tests/components/nintendo_parental_controls). Home Assistant Core is licensed
+under the Apache License, Version 2.0; see LICENSE.
+
+Changes relative to the original are recorded in the git history of this
+repository and summarised in UPSTREAM.md.
+
+The integration uses the pynintendoparental and pynintendoauth libraries,
+which are installed separately by Home Assistant and are not part of this
+repository.

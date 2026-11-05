@@ -1,0 +1,68 @@
+# Nintendo Switch parental controls (patched)
+
+A HACS custom integration that **replaces Home Assistant's built-in
+`nintendo_parental_controls` integration** with a patched copy of it.
+
+It is the core integration from Home Assistant 2026.11.0, under the same
+domain, plus a small set of fixes. Because the domain is the same:
+
+- Home Assistant loads this copy instead of the built-in one (it logs a
+  warning that a custom integration overrides a core integration; that is
+  expected).
+- Your existing config entry, devices, entity IDs and unique IDs are reused
+  as they are. Nothing needs to be set up again.
+- **Uninstalling reverts to the built-in integration.** Remove it in HACS (or
+  delete `custom_components/nintendo_parental_controls`) and restart; Home
+  Assistant goes back to the core version with the same config entry. Entities
+  added by this copy (see below) become unavailable and can be deleted.
+
+Every fix here is meant to be upstreamed to Home Assistant core, one pull
+request per fix; see [UPSTREAM.md](UPSTREAM.md). Once a fix lands in core, it
+is dropped from this repository. The goal is for this repository to become
+unnecessary.
+
+## Installation
+
+1. In HACS, add this repository as a custom repository (category
+   *Integration*).
+2. Install **Nintendo Switch parental controls (patched)**.
+3. Restart Home Assistant.
+
+If you have not set up the integration yet, add it from
+**Settings > Devices & services** as usual; setup is the same as for the
+built-in integration.
+
+Requires Home Assistant 2026.11.0 or newer. Library versions are the same as
+core's: `pynintendoparental==2.6.2` and `pynintendoauth==1.0.3`.
+
+## Changes from core
+
+None yet: this is core's integration as released in 2026.11.0.
+
+## Development
+
+Tests are core's own tests for the integration, plus tests for each fix. They
+run with [`pytest-homeassistant`](https://github.com/home-assistant/core/tree/dev/packages/pytest-homeassistant),
+pinned to the same Home Assistant release (Python 3.14):
+
+```shell
+python3.14 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements_test.txt
+pytest
+```
+
+Core's tests are copied verbatim from `tests/components/nintendo_parental_controls`
+except that imports point at `custom_components.nintendo_parental_controls`
+instead of `homeassistant.components.nintendo_parental_controls`.
+
+`translations/en.json` is generated from `strings.json`:
+
+```shell
+python script/gen_translations.py path/to/core/homeassistant/strings.json
+```
+
+## License
+
+Apache-2.0, like Home Assistant core. See [LICENSE](LICENSE) and
+[NOTICE](NOTICE).
