@@ -29,6 +29,7 @@ from .const import (
     ATTR_BEDTIME_START,
     ATTR_BONUS_TIME,
     ATTR_DAY_OF_WEEK,
+    ATTR_KEY_BY_PLAYER_ID,
     ATTR_MAX_PLAY_TIME,
     BEDTIME_ALARM_DISABLE,
     BEDTIME_ALARM_MAX,
@@ -92,6 +93,7 @@ def async_setup_services(
         schema=probatio.Schema(
             {
                 probatio.Required(ATTR_DEVICE_ID): cv.string,
+                probatio.Optional(ATTR_KEY_BY_PLAYER_ID, default=False): cv.boolean,
             }
         ),
     )
@@ -221,6 +223,16 @@ async def async_get_device_usage_report(call: ServiceCall) -> dict:
     data = call.data
     device_id: str = data[ATTR_DEVICE_ID]
     device = _get_nintendo_device(call.hass, device_id)
+    if data[ATTR_KEY_BY_PLAYER_ID]:
+        return {
+            player.player_id: {
+                "nickname": player.nickname,
+                "apps": _build_player_app_report(player),
+            }
+            for player in device.players
+        }
+    # Keyed by nickname for backward compatibility; players with the same
+    # nickname overwrite each other.
     return {
         player.nickname: _build_player_app_report(player) for player in device.players
     }

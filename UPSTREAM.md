@@ -87,3 +87,13 @@ generates it), and update `quality_scale.yaml` and the documentation in
   actions") in `quality_scale.yaml`. Possibly related:
   [#167425](https://github.com/home-assistant/core/issues/167425) (bonus time
   silently doing nothing).
+
+### 6. Option to key `device_usage_report` by player ID
+
+- Adds an optional `key_by_player_id` field (default `false`). When true, the
+  response is `{player_id: {"nickname": ..., "apps": [...]}}`; the default
+  `{nickname: [...]}` shape is unchanged, so existing automations keep
+  working.
+- Issue: none open. Core may prefer changing the shape outright (a breaking
+  change with a release note) over a flag; the flag keeps this repository a
+  drop-in replacement.

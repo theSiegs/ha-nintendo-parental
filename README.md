@@ -98,6 +98,37 @@ These now raise translated errors: a validation error for things the user can
 fix (extra playing time active, wrong restriction mode, out-of-range values)
 and a Home Assistant error for communication problems.
 
+### `device_usage_report` keyed by player ID (opt-in)
+
+The `nintendo_parental_controls.device_usage_report` response is keyed by
+player nickname, so two players with the same nickname overwrite each other.
+The default response is unchanged. Pass `key_by_player_id: true` to get the
+report keyed by player ID instead, with the nickname inside:
+
+```yaml
+action: nintendo_parental_controls.device_usage_report
+data:
+  device_id: 1234567890abcdef1234567890abcdef
+  key_by_player_id: true
+```
+
+```yaml
+# default (key_by_player_id: false)
+Alex:
+  - name: Some Game
+    playing_time: 45
+    image: https://...
+    whitelisted: true
+# key_by_player_id: true
+a1b2c3d4e5f60708:
+  nickname: Alex
+  apps:
+    - name: Some Game
+      playing_time: 45
+      image: https://...
+      whitelisted: true
+```
+
 ## Development
 
 Tests are core's own tests for the integration, plus tests for each fix. They

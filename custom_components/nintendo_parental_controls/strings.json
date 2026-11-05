@@ -196,6 +196,10 @@
         "device_id": {
           "description": "The ID of the device to get usage details for.",
           "name": "Device"
+        },
+        "key_by_player_id": {
+          "description": "Key the report by player ID, with each player's nickname and apps inside, instead of by nickname. Use this when two players can have the same nickname.",
+          "name": "Key by player ID"
         }
       },
       "name": "Get device usage report"

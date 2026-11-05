@@ -52,6 +52,10 @@ device_usage_report:
       selector:
         device:
           integration: nintendo_parental_controls
+    key_by_player_id:
+      default: false
+      selector:
+        boolean:
 update_daily_restrictions:
   fields:
     device_id:
