@@ -55,3 +55,18 @@ generates it), and update `quality_scale.yaml` and the documentation in
 - A cleaner long-term fix is in the library: re-raise, or expose a per-device
   "last updated" / "update failed" flag (`Device.stats_update_failed` exists
   but only covers the remaining-time calculation).
+
+### 4. Start reauthentication when the token is rejected at runtime
+
+- On `InvalidSessionTokenException` or an HTTP 401 while polling, the
+  coordinator calls `Authenticator.async_complete_login(use_session_token=True)`;
+  if that raises `InvalidSessionTokenException` /
+  `InvalidOAuthConfigurationException` it raises `ConfigEntryAuthFailed`
+  (reauth flow), otherwise `UpdateFailed`. Core's existing
+  `test_update_errors` case for `InvalidSessionTokenException` still passes
+  unchanged.
+- Issues: [#161104](https://github.com/home-assistant/core/issues/161104),
+  [#160261](https://github.com/home-assistant/core/issues/160261) (occasional
+  `invalid_token`, which is why a single 401 must not start reauth).
+- `reauthentication-flow` is already marked done in `quality_scale.yaml`; this
+  makes it work after setup too.

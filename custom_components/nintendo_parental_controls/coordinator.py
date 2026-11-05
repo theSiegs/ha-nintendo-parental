@@ -3,9 +3,11 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import partial
+from http import HTTPStatus
 import logging
 from typing import override
 
+from aiohttp import ClientError
 from pynintendoauth.exceptions import (
     HttpException,
     InvalidOAuthConfigurationException,
@@ -16,7 +18,7 @@ from pynintendoparental.exceptions import NoDevicesFoundException
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryError
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -67,6 +69,7 @@ class NintendoUpdateCoordinator(DataUpdateCoordinator[None]):
             update_interval=UPDATE_INTERVAL,
             config_entry=config_entry,
         )
+        self.authenticator = authenticator
         self.api = NintendoParental(
             authenticator, hass.config.time_zone, hass.config.language
         )
@@ -151,6 +154,27 @@ class NintendoUpdateCoordinator(DataUpdateCoordinator[None]):
                     player.playing_time, now
                 )
 
+    async def _async_validate_session_token(self) -> None:
+        """Log in again with the stored session token.
+
+        Nintendo sometimes rejects a valid access token (HTTP 401
+        invalid_token), so a rejection alone is not proof that the session
+        token was revoked. Raise ConfigEntryAuthFailed only if a fresh login
+        with the session token is refused too.
+        """
+        try:
+            await self.authenticator.async_complete_login(use_session_token=True)
+        except (
+            InvalidSessionTokenException,
+            InvalidOAuthConfigurationException,
+        ) as err:
+            raise ConfigEntryAuthFailed(
+                translation_domain=DOMAIN,
+                translation_key="auth_expired",
+            ) from err
+        except (HttpException, ClientError, TimeoutError) as err:
+            _LOGGER.debug("Could not validate the session token: %s", err)
+
     @override
     async def _async_update_data(self) -> None:
         """Update data from Nintendo's API."""
@@ -169,6 +193,7 @@ class NintendoUpdateCoordinator(DataUpdateCoordinator[None]):
                 translation_key="no_devices_found",
             ) from err
         except InvalidSessionTokenException as err:
+            await self._async_validate_session_token()
             _LOGGER.debug("Session token invalid, will renew on next update")
             raise UpdateFailed from err
         except HttpException as err:
@@ -177,6 +202,9 @@ class NintendoUpdateCoordinator(DataUpdateCoordinator[None]):
                     translation_domain=DOMAIN,
                     translation_key="update_required",
                 ) from err
+            if err.status_code == HTTPStatus.UNAUTHORIZED:
+                await self._async_validate_session_token()
+                raise UpdateFailed from err
             raise UpdateFailed(retry_after=900) from err
         self._check_device_updates(started)
         # Devices found in this poll are watched from the next one on.

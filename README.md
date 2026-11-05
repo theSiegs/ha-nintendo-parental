@@ -78,6 +78,16 @@ console whose update failed in the last poll has its entities marked
 unavailable until an update succeeds again (a warning is logged once when it
 happens, and an info message when it recovers).
 
+### Reauthentication when the login is revoked
+
+Core only asked to reauthenticate if the token was rejected while Home
+Assistant was starting; at runtime it retried forever. Now, when Nintendo
+rejects the token while polling, the integration logs in again with the
+stored session token. If that is refused too, the reauthentication flow
+starts (a repair notification asks you to sign in again). If the new login
+works, it simply retries, because Nintendo also rejects valid tokens now and
+then (HTTP 401 `invalid_token`).
+
 ## Development
 
 Tests are core's own tests for the integration, plus tests for each fix. They
