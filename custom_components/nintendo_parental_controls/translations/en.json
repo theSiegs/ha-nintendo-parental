@@ -69,6 +69,9 @@
       }
     },
     "sensor": {
+      "last_sync": {
+        "name": "Last synced"
+      },
       "player_playing_time": {
         "name": "{nickname} used screen time"
       },

@@ -14,7 +14,8 @@ generates it), and update `quality_scale.yaml` and the documentation in
 
 Core's own tests for the integration pass unchanged at every commit, except
 for one test-fixture change that comes with PR 3 (the mocked client runs
-device callbacks on `update()`, as the library does). Tests run with
+device callbacks on `update()`, as the library does) and the sensor snapshot
+that comes with PR 12 (the new "Last synced" sensor). Tests run with
 `pytest-homeassistant` 2026.11.0; `pytest-homeassistant-custom-component` has
 no 2026.11 release and now points to that package.
 
@@ -173,3 +174,16 @@ from 5, and 11 replaces 8.
   looks intended. Reviewers may want 5 to 60 to match the app.
 - Issues: possibly [#167425](https://github.com/home-assistant/core/issues/167425)
   / [#156288](https://github.com/home-assistant/core/issues/156288).
+
+### 12. "Last synced" timestamp sensor
+
+- New diagnostic `SensorDeviceClass.TIMESTAMP` sensor per console
+  (`{device_id}_last_sync`) from `Device.last_sync`
+  (`synchronizedParentalControlSetting.synchronizedAt`, Unix seconds), so
+  automations can tell when a written setting reached the console. Values
+  that are not numbers are shown as unknown.
+- Tests: `test_last_sync.py`; core's `test_sensor.py` snapshot gains the new
+  entity (shown as unknown, since the mocked device has no `last_sync`
+  number). Upstream, set `mock.last_sync` in `conftest.py` and regenerate the
+  snapshot instead.
+- Issue: none open. Docs: list the sensor.

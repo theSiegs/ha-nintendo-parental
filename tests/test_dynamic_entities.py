@@ -124,6 +124,7 @@ async def test_new_device_adds_entities(
         "newdevid_playing_time",
         "newdevid_time_remaining",
         "newdevid_time_extended",
+        "newdevid_last_sync",
         "newdevid_suspend_software",
         "newdevid_bedtime_alarm",
         "newdevid_bedtime_end_time",

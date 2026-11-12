@@ -15,9 +15,10 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfTime
+from homeassistant.const import EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .coordinator import NintendoParentalControlsConfigEntry, NintendoUpdateCoordinator
 from .entity import NintendoDevice, async_setup_dynamic_entities
@@ -33,6 +34,7 @@ class NintendoParentalControlsSensor(StrEnum):
     PLAYER_PLAYING_TIME = "player_playing_time"
     TIME_REMAINING = "time_remaining"
     TIME_EXTENDED = "time_extended"
+    LAST_SYNC = "last_sync"
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -48,6 +50,15 @@ class NintendoParentalControlsPlayerSensorEntityDescription(SensorEntityDescript
     """Description for Nintendo parental controls player sensor entities."""
 
     value_fn: Callable[[Player], int | float | None]
+
+
+def _last_sync(device: Device) -> datetime | None:
+    """Return when the console last applied its parental control settings."""
+    # Unix time in seconds from Nintendo's JSON; ignore anything else.
+    value = device.last_sync
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    return dt_util.utc_from_timestamp(value)
 
 
 DEVICE_SENSOR_DESCRIPTIONS: tuple[
@@ -78,7 +89,15 @@ DEVICE_SENSOR_DESCRIPTIONS: tuple[
         value_fn=lambda device: device.extra_playing_time,
         available_fn=lambda device: device.extra_playing_time is not None,
     ),
+    NintendoParentalControlsDeviceSensorEntityDescription(
+        key=NintendoParentalControlsSensor.LAST_SYNC,
+        translation_key=NintendoParentalControlsSensor.LAST_SYNC,
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_last_sync,
+    ),
 )
+
 
 PLAYER_SENSOR_DESCRIPTIONS: tuple[
     NintendoParentalControlsPlayerSensorEntityDescription, ...

@@ -162,6 +162,19 @@ can call it without checking first. The button instead raises an error saying
 there is nothing to cancel. Both decide from the last poll (every 60 seconds),
 so extra time granted in Nintendo's app moments ago may not be seen yet.
 
+### Last synced (new diagnostic sensor)
+
+| Entity | Unique ID |
+| --- | --- |
+| `sensor.<switch>_last_synced` | `{device_id}_last_sync` |
+
+A timestamp of when the console last applied its parental control settings,
+as Nintendo reports it (`synchronizedAt`). After changing a limit, bedtime or
+bonus time, automations can wait for this to move past the time of the change
+to know the console has the new setting. It is read on each poll, so it lags
+by up to the polling interval, and only moves when the console is online and
+syncs. The sensor is in the diagnostic category.
+
 ### Diagnostics
 
 Download diagnostics from the integration page. They show each console's
@@ -234,6 +247,8 @@ with two changes:
   successful update (needed for the stale-data fix).
 
 Core's test files are otherwise unchanged; each fix adds its own test file.
+The one exception is a snapshot: `snapshots/test_sensor.ambr` also holds the
+"Last synced" sensor, because core's `test_sensor` snapshots every sensor.
 
 `translations/en.json` is generated from `strings.json`:
 
