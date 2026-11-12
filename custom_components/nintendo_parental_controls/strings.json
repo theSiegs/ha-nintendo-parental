@@ -109,6 +109,9 @@
     "bedtime_out_of_range": {
       "message": "The specified bedtime start or end time is outside of the allowed range. Please ensure bedtime start is between {bedtime_alarm_min} and {bedtime_alarm_max}, or {bedtime_alarm_disable}, and bedtime end is between {bedtime_end_time_min} and {bedtime_end_time_max}."
     },
+    "bonus_time_out_of_range": {
+      "message": "{value} minutes is not accepted. Bonus time must be between {min} and {max} minutes, or -1 for unlimited playing time for the rest of the day."
+    },
     "communication_error": {
       "message": "Error communicating with Nintendo: {error}"
     },
@@ -185,10 +188,10 @@
   },
   "services": {
     "add_bonus_time": {
-      "description": "Add bonus screen time to the selected Nintendo Switch.",
+      "description": "Adds bonus screen time for today to the selected Nintendo Switch. If a bedtime alarm is set, the bonus extends bedtime instead of the daily limit. Optionally returns the extra playing time Nintendo reports afterwards.",
       "fields": {
         "bonus_time": {
-          "description": "The amount of bonus time to add in minutes. Maximum is 30 minutes, minimum is 5.",
+          "description": "The amount of bonus time to add in minutes, from 5 to 360, or -1 for unlimited playing time for the rest of the day. Nintendo's app offers 5, 15, 30 and 60 minutes; Nintendo may limit other values.",
           "name": "Bonus time"
         },
         "device_id": {

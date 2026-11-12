@@ -19,7 +19,8 @@ device callbacks on `update()`, as the library does). Tests run with
 no 2026.11 release and now points to that package.
 
 The PRs are independent except where noted: 9 (diagnostics) reports fields
-added by 1 and 3, and 7 needs a library release first.
+added by 1 and 3, 7 needs a library release first, 10 uses the error helper
+from 5, and 11 replaces 8.
 
 ## Candidate pull requests
 
@@ -155,3 +156,20 @@ added by 1 and 3, and 7 needs a library release first.
   (`no_extra_playing_time`). Reviewers may prefer one behaviour for both.
 - Issue: none open. Core may want the button alone, or the action alone.
 - Docs: document the action, its response and the button.
+
+### 11. Widen the `add_bonus_time` range and return the result
+
+- Schema and selector -1 to 360 minutes; the action refuses 0 to 4 with a
+  translated `bonus_time_out_of_range` error (a selector holds one range, so
+  -1 for "unlimited" and a minimum of 5 cannot both be expressed). Optional
+  response `{"extra_playing_time": minutes | -1 | None}` read after the
+  library re-fetches the settings. Strings note that a set bedtime alarm makes
+  the bonus extend bedtime instead (library behaviour).
+- Supersedes 8 (the selector fix); `tests/test_bonus_time.py` from 8 is updated
+  to the new bounds. Upstream, submit either 8 alone or this instead.
+- Bounds are a judgement call: Nintendo's app offers 5, 15, 30 and 60
+  minutes; 360 matches the longest daily limit; the server's own limit is
+  unknown. The original core selector was -1 to 1440, so -1 (`TO_INFINITY`)
+  looks intended. Reviewers may want 5 to 60 to match the app.
+- Issues: possibly [#167425](https://github.com/home-assistant/core/issues/167425)
+  / [#156288](https://github.com/home-assistant/core/issues/156288).

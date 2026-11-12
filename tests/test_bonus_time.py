@@ -30,12 +30,13 @@ def test_bonus_time_selector_matches_schema() -> None:
     """The add_bonus_time selector allows the same range as the schema."""
     services = yaml.safe_load(SERVICES_YAML.read_text(encoding="utf-8"))
     selector = services["add_bonus_time"]["fields"]["bonus_time"]["selector"]
-    assert selector["number"]["min"] == 5
-    assert selector["number"]["max"] == 30
+    assert selector["number"]["min"] == -1
+    assert selector["number"]["max"] == 360
 
 
 @pytest.mark.parametrize(
-    ("bonus_time", "valid"), [(4, False), (5, True), (30, True), (31, False)]
+    ("bonus_time", "valid"),
+    [(-2, False), (-1, True), (5, True), (360, True), (361, False)],
 )
 @pytest.mark.usefixtures("mock_nintendo_client")
 async def test_bonus_time_schema_range(
@@ -46,7 +47,7 @@ async def test_bonus_time_schema_range(
     bonus_time: int,
     valid: bool,
 ) -> None:
-    """The add_bonus_time action accepts 5 to 30 minutes."""
+    """The add_bonus_time schema accepts -1 to 360 minutes."""
     await setup_integration(hass, mock_config_entry)
     device_entry = device_registry.async_get_device_by_identifier(
         (DOMAIN, "testdevid"), mock_config_entry.entry_id

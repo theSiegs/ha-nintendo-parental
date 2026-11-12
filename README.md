@@ -169,10 +169,37 @@ state, update status, restriction settings and the playing inference, with
 the session token, console name, serial number, player nicknames and images
 redacted.
 
-### Smaller fixes
+### Wider `add_bonus_time` range, with a response
 
-- The `add_bonus_time` action's UI selector now allows 5 to 30 minutes,
-  matching what the action accepts (it offered -1 to 1440).
+Core's `add_bonus_time` only accepted 5 to 30 minutes, while Nintendo's app
+now also offers an hour and the library accepts any number of minutes. The
+action now accepts **5 to 360 minutes, or -1 for unlimited playing time for
+the rest of the day**, and can return the extra playing time Nintendo reports
+afterwards (minutes, -1 for unlimited):
+
+```yaml
+action: nintendo_parental_controls.add_bonus_time
+data:
+  device_id: 1234567890abcdef1234567890abcdef
+  bonus_time: 60
+response_variable: result
+# result:
+#   extra_playing_time: 60
+```
+
+The UI selector shows -1 to 360 (a selector holds a single range); 0 to 4 are
+refused with an error. Notes:
+
+- **Bedtime:** when a bedtime alarm is set for today (and alarms are
+  visible), the library grants the minutes against bedtime, so bedtime moves
+  later instead of the daily limit growing. -1 always uses Nintendo's
+  "unlimited" request.
+- **Nintendo may cap it:** 360 matches the longest daily limit Nintendo
+  allows; it is not known whether Nintendo's server accepts or caps grants the
+  app does not offer (it offers 5, 15, 30 and 60 minutes). Check the response
+  or the "Extended screen time" sensor.
+- The entities pick the change up on the next poll.
+- Core automations without `response_variable` keep working unchanged.
 
 ## Known limitations
 

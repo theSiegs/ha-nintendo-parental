@@ -42,6 +42,9 @@ from .const import (
     BEDTIME_ALARM_MIN,
     BEDTIME_END_TIME_MAX,
     BEDTIME_END_TIME_MIN,
+    BONUS_TIME_MAX,
+    BONUS_TIME_MIN,
+    BONUS_TIME_UNLIMITED,
     DOMAIN,
 )
 from .coordinator import NintendoParentalControlsConfigEntry
@@ -71,11 +74,15 @@ def async_setup_services(
         domain=DOMAIN,
         service=NintendoParentalService.ADD_BONUS_TIME,
         service_func=async_add_bonus_time,
+        supports_response=SupportsResponse.OPTIONAL,
         schema=probatio.Schema(
             {
                 probatio.Required(ATTR_DEVICE_ID): cv.string,
+                # The selector can only show one range; values between -1
+                # and the minimum are refused by the action itself.
                 probatio.Required(ATTR_BONUS_TIME): probatio.All(
-                    int, probatio.Range(min=5, max=30)
+                    int,
+                    probatio.Range(min=BONUS_TIME_UNLIMITED, max=BONUS_TIME_MAX),
                 ),
             }
         ),
@@ -201,14 +208,30 @@ def _build_player_app_report(player: Player) -> list[dict[str, JsonValueType]]:
     ]
 
 
-async def async_add_bonus_time(call: ServiceCall) -> None:
-    """Add bonus time to a device."""
+async def async_add_bonus_time(call: ServiceCall) -> ServiceResponse:
+    """Add bonus time to a device.
+
+    Respond with the extra playing time Nintendo reports afterwards, in
+    minutes (-1 for unlimited). If a bedtime alarm is set, the library
+    extends bedtime instead of the daily limit.
+    """
     data = call.data
     device_id: str = data[ATTR_DEVICE_ID]
     bonus_time: int = data[ATTR_BONUS_TIME]
+    if bonus_time != BONUS_TIME_UNLIMITED and bonus_time < BONUS_TIME_MIN:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="bonus_time_out_of_range",
+            translation_placeholders={
+                "value": str(bonus_time),
+                "min": str(BONUS_TIME_MIN),
+                "max": str(BONUS_TIME_MAX),
+            },
+        )
     device = _get_nintendo_device(call.hass, device_id)
     with handle_device_errors():
         await device.add_extra_time(bonus_time)
+    return {"extra_playing_time": device.extra_playing_time}
 
 
 async def async_cancel_bonus_time(call: ServiceCall) -> ServiceResponse:

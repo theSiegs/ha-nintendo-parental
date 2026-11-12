@@ -15,6 +15,11 @@ APP_SETUP_URL = (
     "https://www.nintendo.com/my/support/switch/parentalcontrols/app/setup.html"
 )
 ATTR_BONUS_TIME = "bonus_time"
+# Nintendo's app offers 5, 15, 30 and 60 minutes; the library sends any
+# number. 360 matches the longest daily limit. -1 is unlimited for the day.
+BONUS_TIME_MIN = 5
+BONUS_TIME_MAX = 360
+BONUS_TIME_UNLIMITED = -1
 ATTR_DAY_OF_WEEK = "day_of_week"
 ATTR_BEDTIME_START = "bedtime_start"
 ATTR_BEDTIME_END = "bedtime_end"
