@@ -14,9 +14,11 @@ domain, plus a small set of fixes. Because the domain is the same:
 - **Uninstalling reverts to the built-in integration.** Remove it in HACS (or
   delete `custom_components/nintendo_parental_controls`) and restart; Home
   Assistant goes back to the core version with the same config entry. Entities
-  added by this copy (see below) become unavailable and can be deleted, and
+  added by this copy (see below) become unavailable and can be deleted,
   automations that pass `key_by_player_id` to `device_usage_report` must drop
-  it, because core rejects the unknown field.
+  it, because core rejects the unknown field, and automations that call
+  `list_applications` or `set_app_allowed` stop working, because core has no
+  such actions.
 
 Every fix here is meant to be upstreamed to Home Assistant core, one pull
 request per fix; see [UPSTREAM.md](UPSTREAM.md). Once a fix lands in core, it
@@ -132,6 +134,65 @@ a1b2c3d4e5f60708:
       image: https://...
       whitelisted: true
 ```
+
+### Allow list (new actions)
+
+The allow list (Nintendo's app: *Restricted Software*, `safeLaunch` in the
+API) lets a game be played even though the console's age rating restriction
+would block it. It does not change play time limits or bedtime, and it applies
+to the whole console, for every player. Core shows it only as `whitelisted` in
+the usage reports. This copy adds two actions, without per-app entities:
+
+| Action | |
+| --- | --- |
+| `nintendo_parental_controls.list_applications` | Lists the console's applications with their Nintendo application ID and whether each is allowed. |
+| `nintendo_parental_controls.set_app_allowed` | Adds an application to, or removes it from, the allow list. Administrators only. |
+
+```yaml
+action: nintendo_parental_controls.list_applications
+data:
+  device_id: 1234567890abcdef1234567890abcdef
+response_variable: apps
+# apps:
+#   applications:
+#     - application_id: 0100ABCDEF012000
+#       name: Some Game
+#       allowed: false
+#       image: https://...
+
+action: nintendo_parental_controls.set_app_allowed
+data:
+  device_id: 1234567890abcdef1234567890abcdef
+  application_id: 0100ABCDEF012000
+  allowed: true
+response_variable: result   # optional
+# result:
+#   application_id: 0100ABCDEF012000
+#   name: Some Game
+#   allowed: true
+#   changed: true
+```
+
+Notes:
+
+- **Application IDs, not titles.** `set_app_allowed` takes the ID from
+  `list_applications` (case does not matter). Titles can repeat and change
+  with the language, so they are not accepted. An unknown ID is refused with a
+  translated error.
+- The applications are the ones Nintendo lists for the console's allow list:
+  software that has been on the console. `list_applications` uses the last
+  poll (every 60 seconds); software Nintendo stops listing stays in the list
+  until Home Assistant restarts, and `set_app_allowed` refuses it.
+- **No stale overwrite.** The library sends the console's whole restriction
+  settings (allow list and age rating level) back to Nintendo. So that a
+  change made in Nintendo's app since the last poll is not undone,
+  `set_app_allowed` first refreshes that console from Nintendo, then writes
+  only if the application's state differs (`changed: false` otherwise). If the
+  refresh fails, nothing is written. The response is read from the settings
+  Nintendo returns after the write, and the entities are updated with the
+  refreshed data.
+- The console applies the change when it next syncs with Nintendo, as with
+  any other setting.
 
 ### Diagnostics
 

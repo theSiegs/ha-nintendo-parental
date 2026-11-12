@@ -94,3 +94,29 @@ update_daily_restrictions:
           max: 360
           unit_of_measurement: minutes
           mode: box
+list_applications:
+  fields:
+    device_id:
+      required: true
+      example: 1234567890abcdef1234567890abcdef
+      selector:
+        device:
+          integration: nintendo_parental_controls
+set_app_allowed:
+  fields:
+    device_id:
+      required: true
+      example: 1234567890abcdef1234567890abcdef
+      selector:
+        device:
+          integration: nintendo_parental_controls
+    application_id:
+      required: true
+      example: 0100ABCDEF012000
+      selector:
+        text:
+    allowed:
+      required: true
+      example: true
+      selector:
+        boolean:

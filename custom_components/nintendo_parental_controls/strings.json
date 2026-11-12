@@ -92,6 +92,12 @@
     }
   },
   "exceptions": {
+    "allow_list_unavailable": {
+      "message": "The allow list of the Nintendo Switch has not been loaded yet. Try again after the next update."
+    },
+    "application_not_found": {
+      "message": "No application with ID {application_id} was found on the Nintendo Switch. Use the list applications action to find application IDs."
+    },
     "auth_expired": {
       "message": "Authentication token expired."
     },
@@ -204,6 +210,16 @@
       },
       "name": "Get device usage report"
     },
+    "list_applications": {
+      "description": "Lists the applications on the selected Nintendo Switch with their application IDs and whether each is on the allow list.",
+      "fields": {
+        "device_id": {
+          "description": "The ID of the device to list applications for.",
+          "name": "Device"
+        }
+      },
+      "name": "List applications"
+    },
     "player_usage_report": {
       "description": "Retrieves today's application usage details for a specific player.",
       "fields": {
@@ -217,6 +233,24 @@
         }
       },
       "name": "Get player usage report"
+    },
+    "set_app_allowed": {
+      "description": "Adds an application to, or removes it from, the allow list of the selected Nintendo Switch. Allowed applications can be played regardless of the console's age rating restriction; play time limits still apply. The allow list applies to everyone on the console. Optionally returns the application's new state.",
+      "fields": {
+        "allowed": {
+          "description": "Whether the application is on the allow list.",
+          "name": "Allowed"
+        },
+        "application_id": {
+          "description": "The Nintendo application ID, as returned by the list applications action.",
+          "name": "Application ID"
+        },
+        "device_id": {
+          "description": "The ID of the device to change the allow list on.",
+          "name": "Device"
+        }
+      },
+      "name": "Set application allowed"
     },
     "update_daily_restrictions": {
       "description": "Updates restrictions for a specific day of the week on the selected Nintendo Switch.",

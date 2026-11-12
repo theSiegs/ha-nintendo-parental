@@ -20,6 +20,8 @@ ATTR_BEDTIME_START = "bedtime_start"
 ATTR_BEDTIME_END = "bedtime_end"
 ATTR_MAX_PLAY_TIME = "max_play_time"
 ATTR_KEY_BY_PLAYER_ID = "key_by_player_id"
+ATTR_APPLICATION_ID = "application_id"
+ATTR_ALLOWED = "allowed"
 
 CONF_PLAYING_HOLDOVER = "playing_holdover"
 DEFAULT_PLAYING_HOLDOVER = 10
