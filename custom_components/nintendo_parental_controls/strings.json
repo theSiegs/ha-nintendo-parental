@@ -49,6 +49,11 @@
         }
       }
     },
+    "button": {
+      "cancel_extra_playing_time": {
+        "name": "Cancel extra playing time"
+      }
+    },
     "number": {
       "today_max_screentime": {
         "name": "Max screentime today"
@@ -143,6 +148,9 @@
     "no_devices_found": {
       "message": "No Nintendo devices found for this account."
     },
+    "no_extra_playing_time": {
+      "message": "No extra playing time is active today, so there is nothing to cancel."
+    },
     "requires_daily_restrictions": {
       "message": "Daily restrictions can only be set when restriction mode is set to different for each day."
     },
@@ -189,6 +197,16 @@
         }
       },
       "name": "Add bonus time"
+    },
+    "cancel_bonus_time": {
+      "description": "Cancels today's extra playing time (bonus time) on the selected Nintendo Switch. Does nothing if none is active. Optionally returns whether extra playing time was cancelled and how much it was.",
+      "fields": {
+        "device_id": {
+          "description": "The ID of the device to cancel bonus time on.",
+          "name": "Device"
+        }
+      },
+      "name": "Cancel bonus time"
     },
     "device_usage_report": {
       "description": "Retrieves today's application usage details for a device.",

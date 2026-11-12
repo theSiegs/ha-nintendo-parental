@@ -13,6 +13,11 @@
           "on": "mdi:controller"
         }
       }
+    },
+    "button": {
+      "cancel_extra_playing_time": {
+        "default": "mdi:timer-cancel"
+      }
     }
   }
 }

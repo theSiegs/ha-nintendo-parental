@@ -140,3 +140,18 @@ added by 1 and 3, and 7 needs a library release first.
   (In core, drop the play-inference and availability fields if PRs 1 and 3
   are not merged first.)
 - Issue: none; it is the `diagnostics` rule (todo) in `quality_scale.yaml`.
+
+### 10. Cancel extra playing time
+
+- Adds a `cancel_bonus_time` action (`device_id`, optional response
+  `{"cancelled": bool, "previous_extra_playing_time": minutes | -1 | None}`)
+  and a per-console "Cancel extra playing time" button (`button` platform,
+  `{device_id}_cancel_extra_playing_time`), both calling
+  `Device.cancel_extra_time()` (API status `TO_CANCELLED`). Library errors go
+  through `handle_device_errors()` (needs 5; without it, drop the wrapper).
+- With no extra playing time active (per the last poll) nothing is sent to
+  Nintendo: the action returns `cancelled: false` so automations need no
+  check; the button raises a `ServiceValidationError`
+  (`no_extra_playing_time`). Reviewers may prefer one behaviour for both.
+- Issue: none open. Core may want the button alone, or the action alone.
+- Docs: document the action, its response and the button.

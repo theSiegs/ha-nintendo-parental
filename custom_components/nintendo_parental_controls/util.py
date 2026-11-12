@@ -5,6 +5,7 @@ from contextlib import contextmanager
 
 from aiohttp import ClientError
 from pynintendoauth.exceptions import HttpException
+from pynintendoparental.device import Device
 from pynintendoparental.exceptions import (
     BedtimeOutOfRangeError,
     DailyPlaytimeOutOfRangeError,
@@ -77,3 +78,18 @@ def handle_device_errors() -> Generator[None]:
             translation_key="communication_error",
             translation_placeholders={"error": str(err)},
         ) from err
+
+
+async def async_cancel_extra_time(device: Device) -> int | None:
+    """Cancel today's extra playing time on a console.
+
+    Return the extra playing time that was cancelled, in minutes (-1 for
+    unlimited), or None if none was active and nothing was sent to Nintendo.
+    The check uses the state from the last poll.
+    """
+    previous = device.extra_playing_time
+    if not previous:
+        return None
+    with handle_device_errors():
+        await device.cancel_extra_time()
+    return previous

@@ -15,7 +15,13 @@ from pynintendoparental.exceptions import (
 from pynintendoparental.player import Player
 
 from homeassistant.const import ATTR_DEVICE_ID, ATTR_ENTITY_ID, CONF_PIN
-from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse, callback
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+    callback,
+)
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import (
     config_validation as cv,
@@ -40,7 +46,7 @@ from .const import (
 )
 from .coordinator import NintendoParentalControlsConfigEntry
 from .sensor import NintendoParentalControlsSensor
-from .util import handle_device_errors
+from .util import async_cancel_extra_time, handle_device_errors
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,6 +55,7 @@ class NintendoParentalService(StrEnum):
     """Store keys for Nintendo Parental services."""
 
     ADD_BONUS_TIME = "add_bonus_time"
+    CANCEL_BONUS_TIME = "cancel_bonus_time"
     UPDATE_PIN_CODE = "update_pin_code"
     PLAYER_USAGE_REPORT = "player_usage_report"
     DEVICE_USAGE_REPORT = "device_usage_report"
@@ -70,6 +77,17 @@ def async_setup_services(
                 probatio.Required(ATTR_BONUS_TIME): probatio.All(
                     int, probatio.Range(min=5, max=30)
                 ),
+            }
+        ),
+    )
+    hass.services.async_register(
+        domain=DOMAIN,
+        service=NintendoParentalService.CANCEL_BONUS_TIME,
+        service_func=async_cancel_bonus_time,
+        supports_response=SupportsResponse.OPTIONAL,
+        schema=probatio.Schema(
+            {
+                probatio.Required(ATTR_DEVICE_ID): cv.string,
             }
         ),
     )
@@ -191,6 +209,20 @@ async def async_add_bonus_time(call: ServiceCall) -> None:
     device = _get_nintendo_device(call.hass, device_id)
     with handle_device_errors():
         await device.add_extra_time(bonus_time)
+
+
+async def async_cancel_bonus_time(call: ServiceCall) -> ServiceResponse:
+    """Cancel today's extra playing time on a device.
+
+    Does nothing if no extra playing time is active, so automations can call
+    it without checking first.
+    """
+    device = _get_nintendo_device(call.hass, call.data[ATTR_DEVICE_ID])
+    cancelled = await async_cancel_extra_time(device)
+    return {
+        "cancelled": cancelled is not None,
+        "previous_extra_playing_time": cancelled,
+    }
 
 
 async def async_update_pin_code(call: ServiceCall) -> None:

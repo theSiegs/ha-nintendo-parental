@@ -118,6 +118,7 @@ async def test_new_device_adds_entities(
     added = _unique_ids(entity_registry, mock_config_entry) - before
     assert added == {
         "newdevid_playing",
+        "newdevid_cancel_extra_playing_time",
         "newdevid_today_max_screentime",
         "newdevid_timer_mode",
         "newdevid_playing_time",

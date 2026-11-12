@@ -14,9 +14,10 @@ domain, plus a small set of fixes. Because the domain is the same:
 - **Uninstalling reverts to the built-in integration.** Remove it in HACS (or
   delete `custom_components/nintendo_parental_controls`) and restart; Home
   Assistant goes back to the core version with the same config entry. Entities
-  added by this copy (see below) become unavailable and can be deleted, and
+  added by this copy (see below) become unavailable and can be deleted,
   automations that pass `key_by_player_id` to `device_usage_report` must drop
-  it, because core rejects the unknown field.
+  it, because core rejects the unknown field, and automations that call
+  `cancel_bonus_time` stop working, because core has no such action.
 
 Every fix here is meant to be upstreamed to Home Assistant core, one pull
 request per fix; see [UPSTREAM.md](UPSTREAM.md). Once a fix lands in core, it
@@ -132,6 +133,34 @@ a1b2c3d4e5f60708:
       image: https://...
       whitelisted: true
 ```
+
+### Cancel extra playing time (new action and button)
+
+Core can grant extra playing time but not take it back. This copy adds:
+
+| Entity / action | Unique ID |
+| --- | --- |
+| `button.<switch>_cancel_extra_playing_time` | `{device_id}_cancel_extra_playing_time` |
+| `nintendo_parental_controls.cancel_bonus_time` | |
+
+The action takes a `device_id`, like `add_bonus_time`, and can return a
+response:
+
+```yaml
+action: nintendo_parental_controls.cancel_bonus_time
+data:
+  device_id: 1234567890abcdef1234567890abcdef
+response_variable: result
+# result:
+#   cancelled: true
+#   previous_extra_playing_time: 30   # minutes, -1 if it was unlimited
+```
+
+If no extra playing time is active, the action does nothing and returns
+`cancelled: false` (and `previous_extra_playing_time: null`), so automations
+can call it without checking first. The button instead raises an error saying
+there is nothing to cancel. Both decide from the last poll (every 60 seconds),
+so extra time granted in Nintendo's app moments ago may not be seen yet.
 
 ### Diagnostics
 
