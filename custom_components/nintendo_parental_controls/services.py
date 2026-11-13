@@ -4,6 +4,7 @@ from enum import StrEnum
 import logging
 
 import probatio
+from pynintendoparental.application import Application
 from pynintendoparental.const import DAYS_OF_WEEK
 from pynintendoparental.device import Device
 from pynintendoparental.enum import SafeLaunchSetting
@@ -22,7 +23,7 @@ from homeassistant.core import (
     SupportsResponse,
     callback,
 )
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import (
     config_validation as cv,
     entity_registry as er,
@@ -31,6 +32,8 @@ from homeassistant.helpers import (
 from homeassistant.util.json import JsonValueType
 
 from .const import (
+    ATTR_ALLOWED,
+    ATTR_APPLICATION_ID,
     ATTR_BEDTIME_END,
     ATTR_BEDTIME_START,
     ATTR_BONUS_TIME,
@@ -63,6 +66,8 @@ class NintendoParentalService(StrEnum):
     PLAYER_USAGE_REPORT = "player_usage_report"
     DEVICE_USAGE_REPORT = "device_usage_report"
     UPDATE_DAILY_RESTRICTIONS = "update_daily_restrictions"
+    LIST_APPLICATIONS = "list_applications"
+    SET_APP_ALLOWED = "set_app_allowed"
 
 
 @callback
@@ -139,6 +144,33 @@ def async_setup_services(
             }
         ),
     )
+    hass.services.async_register(
+        domain=DOMAIN,
+        service=NintendoParentalService.LIST_APPLICATIONS,
+        service_func=async_list_applications,
+        supports_response=SupportsResponse.ONLY,
+        schema=probatio.Schema(
+            {
+                probatio.Required(ATTR_DEVICE_ID): cv.string,
+            }
+        ),
+    )
+    # Admin only: the allow list lets games past the console's age rating
+    # restriction.
+    service.async_register_admin_service(
+        hass,
+        DOMAIN,
+        NintendoParentalService.SET_APP_ALLOWED,
+        async_set_app_allowed,
+        probatio.Schema(
+            {
+                probatio.Required(ATTR_DEVICE_ID): cv.string,
+                probatio.Required(ATTR_APPLICATION_ID): cv.string,
+                probatio.Required(ATTR_ALLOWED): cv.boolean,
+            }
+        ),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
     service.async_register_admin_service(
         hass,
         DOMAIN,
@@ -155,6 +187,13 @@ def async_setup_services(
 
 def _get_nintendo_device(hass: HomeAssistant, device_id: str) -> Device:
     """Get the Nintendo device from a device ID."""
+    return _get_nintendo_device_and_entry(hass, device_id)[0]
+
+
+def _get_nintendo_device_and_entry(
+    hass: HomeAssistant, device_id: str
+) -> tuple[Device, NintendoParentalControlsConfigEntry]:
+    """Get the Nintendo device and its config entry from a device ID."""
     config_entry: NintendoParentalControlsConfigEntry
     device, config_entry = service.async_get_device_and_config_entry(
         hass, DOMAIN, device_id
@@ -168,7 +207,10 @@ def _get_nintendo_device(hass: HomeAssistant, device_id: str) -> Device:
         nintendo_device_id
         and nintendo_device_id in config_entry.runtime_data.api.devices
     ):
-        return config_entry.runtime_data.api.devices[nintendo_device_id]
+        return (
+            config_entry.runtime_data.api.devices[nintendo_device_id],
+            config_entry,
+        )
     raise ServiceValidationError(
         translation_domain=DOMAIN,
         translation_key="invalid_device",
@@ -206,6 +248,27 @@ def _build_player_app_report(player: Player) -> list[dict[str, JsonValueType]]:
         }
         for app in player.apps
     ]
+
+
+def _application_info(application: Application) -> dict[str, JsonValueType]:
+    """Describe an application and its allow list state."""
+    return {
+        "application_id": application.application_id,
+        "name": application.name,
+        "allowed": application.safe_launch_setting == SafeLaunchSetting.ALLOW,
+    }
+
+
+def _get_application(device: Device, application_id: str) -> Application:
+    """Return an application on a device by its ID, ignoring case."""
+    for application in device.applications:
+        if application.application_id.casefold() == application_id.casefold():
+            return application
+    raise ServiceValidationError(
+        translation_domain=DOMAIN,
+        translation_key="application_not_found",
+        translation_placeholders={"application_id": application_id},
+    )
 
 
 async def async_add_bonus_time(call: ServiceCall) -> ServiceResponse:
@@ -334,3 +397,60 @@ async def async_set_per_day_controls(call: ServiceCall) -> None:
                     "bedtime_alarm_disable": BEDTIME_ALARM_DISABLE,
                 },
             ) from err
+
+
+async def async_list_applications(call: ServiceCall) -> ServiceResponse:
+    """Return the applications on a device and whether they are allowed.
+
+    Uses the state from the last poll.
+    """
+    device = _get_nintendo_device(call.hass, call.data[ATTR_DEVICE_ID])
+    return {
+        "applications": [
+            {
+                **_application_info(application),
+                "image": application.image_url,
+            }
+            for application in device.applications
+        ]
+    }
+
+
+async def async_set_app_allowed(call: ServiceCall) -> ServiceResponse:
+    """Add an application to, or remove it from, a device's allow list.
+
+    The library sends the device's whole restriction settings back to
+    Nintendo, so the device is refreshed first; otherwise a change made in
+    Nintendo's app since the last poll could be overwritten. Nothing is sent
+    if the application already has the requested state.
+    """
+    data = call.data
+    allowed: bool = data[ATTR_ALLOWED]
+    device, config_entry = _get_nintendo_device_and_entry(
+        call.hass, data[ATTR_DEVICE_ID]
+    )
+    application = _get_application(device, data[ATTR_APPLICATION_ID])
+    setting = SafeLaunchSetting.ALLOW if allowed else SafeLaunchSetting.NONE
+    with handle_device_errors():
+        await device.update()
+        changed = application.safe_launch_setting != setting
+        if changed:
+            try:
+                await application.set_safe_launch_setting(setting)
+            except LookupError as err:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="application_not_found",
+                    translation_placeholders={
+                        "application_id": application.application_id
+                    },
+                ) from err
+            except ValueError as err:
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="allow_list_unavailable",
+                ) from err
+    # The library parsed the settings Nintendo returned; show the refreshed
+    # device data in the entities.
+    config_entry.runtime_data.async_update_listeners()
+    return {**_application_info(application), "changed": changed}

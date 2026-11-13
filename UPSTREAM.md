@@ -23,6 +23,9 @@ The PRs are independent except where noted: 9 (diagnostics) reports fields
 added by 1 and 3, 7 needs a library release first, 10 uses the error helper
 from 5, and 11 replaces 8.
 
+added by 1 and 3, 7 needs a library release first, and 13 uses the error
+helper from 5.
+
 ## Candidate pull requests
 
 ### 1. Inferred "playing" binary sensors
@@ -187,3 +190,35 @@ from 5, and 11 replaces 8.
   number). Upstream, set `mock.last_sync` in `conftest.py` and regenerate the
   snapshot instead.
 - Issue: none open. Docs: list the sensor.
+
+### 13. Allow list actions
+
+- Adds `list_applications` (response only:
+  `{"applications": [{"application_id", "name", "allowed", "image"}]}` from
+  `Device.applications`) and `set_app_allowed` (admin, `device_id`,
+  `application_id`, `allowed`; optional response
+  `{"application_id", "name", "allowed", "changed"}`) using
+  `Application.set_safe_launch_setting(SafeLaunchSetting.ALLOW / NONE)`.
+  Services rather than per-app entities, as the maintainer preferred in
+  [core PR #173160](https://github.com/home-assistant/core/pull/173160).
+- `set_app_allowed` awaits `Device.update()` before writing, because the
+  library sends the whole restriction settings (`whitelistedApplicationList`,
+  `functionalRestrictionLevel`, with the settings etag) back through
+  `updateRestrictionLevel`; a change made in Nintendo's app since the last
+  poll would otherwise be overwritten. It writes only if the state differs,
+  then calls `async_update_listeners()`; the library re-parses the settings
+  Nintendo returns, so the response shows Nintendo's state. Costs one
+  device refresh (about five requests) per call.
+- Errors: unknown ID and the library's `LookupError` (no longer in the
+  allow list) are `application_not_found` (`ServiceValidationError`); its
+  `ValueError` (settings not loaded yet) is `allow_list_unavailable`; the rest
+  go through `handle_device_errors()` (needs 5; without it, drop the wrapper).
+- Review questions to expect: admin-only (chosen because it bypasses the age
+  rating), whether `list_applications` should be folded into
+  `device_usage_report` (not done: that report only lists apps played today
+  and core's snapshot would change), and whether a cheaper settings-only
+  refresh should be added to the library (`Device._get_parental_control_setting`
+  is private).
+- Tests: `test_app_allow_list.py`. Issue: none open. Docs: document both
+  actions and that the allow list is console-wide and does not affect play
+  time.
