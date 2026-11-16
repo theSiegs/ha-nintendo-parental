@@ -15,7 +15,7 @@ being proposed upstream. Because the domain is the same:
 - **Uninstalling reverts to the built-in integration.** Remove it in HACS (or
   delete `custom_components/nintendo_parental_controls`) and restart; Home
   Assistant goes back to the core version with the same config entry. The
-  "Last synced" sensor becomes unavailable and can be deleted, and
+  playing and "Last synced" sensors become unavailable and can be deleted, and
   automations that call `cancel_bonus_time`, `list_applications` or
   `set_app_allowed`, or pass more than 30 minutes (or -1) to
   `add_bonus_time`, stop working, because core does not have them yet.
@@ -41,6 +41,30 @@ covers what core `dev` uses from 2026.12). Library versions are the same as
 core's: `pynintendoparental==2.6.2` and `pynintendoauth==1.0.3`.
 
 ## Changes from core
+
+### Playing now (new binary sensors, this repository only)
+
+This branch (`ha/core-dev-next-playing`) also keeps the inferred playing
+sensors. They are not proposed to core; they stay until Hearth infers playing
+from core's per-player screen time sensors itself.
+
+| Entity | Unique ID |
+| --- | --- |
+| `binary_sensor.<switch>_playing` | `{device_id}_playing` |
+| `binary_sensor.<switch>_<player>_playing` | `{device_id}_{player_id}_playing` |
+
+Both have a `last_increase` attribute: when the play time was last seen
+growing (UTC), or `null` if not since Home Assistant started.
+
+**These are inferred.** Nintendo publishes no "now playing" signal. The
+sensors turn on when the day's play time (for the console, or for that
+player) grows between two polls, and stay on for a hold-over period after the
+last increase, because the console only uploads its play time every few
+minutes. The hold-over defaults to 10 minutes and can be changed under
+**Settings > Devices & services > Nintendo Switch parental controls >
+Configure**. The first poll after a restart only records a baseline, the
+daily reset at midnight does not count as play, and a console that failed to
+update is not compared.
 
 ### Entities go unavailable when a console's data is stale
 
@@ -178,7 +202,7 @@ The previous build (`install/combined`, on core 2026.11.0) also had inferred
 for every setter, `key_by_player_id` on `device_usage_report`, a "Cancel extra
 playing time" button and responses from `add_bonus_time` /
 `cancel_bonus_time`. They are not in this build; see [UPSTREAM.md](UPSTREAM.md)
-for why, and for the branch that keeps the playing sensors.
+for why. This branch keeps the playing sensors (above).
 
 ## Known limitations
 

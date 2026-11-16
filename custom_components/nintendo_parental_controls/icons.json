@@ -1,4 +1,20 @@
 {
+  "entity": {
+    "binary_sensor": {
+      "player_playing": {
+        "default": "mdi:controller-off",
+        "state": {
+          "on": "mdi:controller"
+        }
+      },
+      "playing": {
+        "default": "mdi:controller-off",
+        "state": {
+          "on": "mdi:controller"
+        }
+      }
+    }
+  },
   "services": {
     "add_bonus_time": {
       "service": "mdi:timer-plus-outline"

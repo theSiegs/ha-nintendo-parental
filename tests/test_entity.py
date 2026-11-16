@@ -89,7 +89,10 @@ async def test_new_player_adds_entities(
     await _poll(hass, freezer)
 
     added = _unique_ids(entity_registry, mock_config_entry) - before
-    assert added == {"testdevid_newplayerid_player_playing_time"}
+    assert added == {
+        "testdevid_newplayerid_player_playing_time",
+        "testdevid_newplayerid_playing",
+    }
     state = hass.states.get("sensor.home_assistant_test_sam_used_screen_time")
     assert state
     assert state.state == "0"
@@ -131,6 +134,8 @@ async def test_new_device_adds_entities(
         "newdevid_bedtime_alarm",
         "newdevid_bedtime_end_time",
         "newdevid_alexid_player_playing_time",
+        "newdevid_playing",
+        "newdevid_alexid_playing",
     }
     state = hass.states.get("sensor.second_switch_alex_used_screen_time")
     assert state

@@ -9,13 +9,46 @@ from pynintendoauth.exceptions import HttpException, InvalidSessionTokenExceptio
 from pynintendoparental import Authenticator
 from pynintendoparental.api import Api
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.const import CONF_API_TOKEN
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
+from homeassistant.const import CONF_API_TOKEN, UnitOfTime
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.schema_config_entry_flow import (
+    SchemaFlowFormStep,
+    SchemaOptionsFlowHandler,
+)
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+)
 
-from .const import APP_SETUP_URL, CONF_SESSION_TOKEN, DOMAIN
+from .const import (
+    APP_SETUP_URL,
+    CONF_PLAYING_HOLDOVER,
+    CONF_SESSION_TOKEN,
+    DEFAULT_PLAYING_HOLDOVER,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
+
+OPTIONS_SCHEMA = probatio.Schema(
+    {
+        probatio.Required(
+            CONF_PLAYING_HOLDOVER, default=DEFAULT_PLAYING_HOLDOVER
+        ): NumberSelector(
+            NumberSelectorConfig(
+                min=1,
+                max=60,
+                step=1,
+                unit_of_measurement=UnitOfTime.MINUTES,
+                mode=NumberSelectorMode.BOX,
+            )
+        ),
+    }
+)
+OPTIONS_FLOW = {"init": SchemaFlowFormStep(OPTIONS_SCHEMA)}
 
 
 class NintendoConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -24,6 +57,14 @@ class NintendoConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize a new config flow instance."""
         self.auth: Authenticator | None = None
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: ConfigEntry,
+    ) -> SchemaOptionsFlowHandler:
+        """Get the options flow for this handler."""
+        return SchemaOptionsFlowHandler(config_entry, OPTIONS_FLOW)
 
     @override
     async def async_step_user(

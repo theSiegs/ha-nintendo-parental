@@ -63,10 +63,7 @@ rules:
   entity-disabled-by-default: done
   entity-translations: done
   exception-translations: todo
-  icon-translations:
-    status: exempt
-    comment: |
-      No specific icons defined.
+  icon-translations: done
   reconfiguration-flow: todo
   repair-issues:
     comment: |

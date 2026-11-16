@@ -17,6 +17,10 @@ BONUS_TIME_MIN = 5
 BONUS_TIME_MAX = 60
 BONUS_TIME_UNLIMITED = -1
 
+CONF_PLAYING_HOLDOVER = "playing_holdover"
+DEFAULT_PLAYING_HOLDOVER = 10
+ATTR_LAST_INCREASE = "last_increase"
+
 APP_SETUP_URL = (
     "https://www.nintendo.com/my/support/switch/parentalcontrols/app/setup.html"
 )

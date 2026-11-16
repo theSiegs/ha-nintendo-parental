@@ -18,6 +18,7 @@ from .coordinator import NintendoParentalControlsConfigEntry, NintendoUpdateCoor
 from .services import async_setup_services
 
 _PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
     Platform.NUMBER,
     Platform.SELECT,
     Platform.SENSOR,
