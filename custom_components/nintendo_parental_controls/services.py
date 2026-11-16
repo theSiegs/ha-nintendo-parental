@@ -6,6 +6,7 @@ import logging
 from aiohttp import ClientError
 import probatio
 from pynintendoauth.exceptions import HttpException
+from pynintendoparental.application import Application
 from pynintendoparental.const import DAYS_OF_WEEK
 from pynintendoparental.device import Device
 from pynintendoparental.enum import SafeLaunchSetting
@@ -20,7 +21,13 @@ try:
     from homeassistant.const import CommonServiceArgument
 except ImportError:  # Home Assistant 2026.11 and older (fork only)
     from .compat import CommonServiceArgument  # type: ignore[assignment]
-from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse, callback
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+    callback,
+)
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import (
     config_validation as cv,
@@ -55,6 +62,8 @@ class NintendoParentalService(StrEnum):
     PLAYER_USAGE_REPORT = "player_usage_report"
     DEVICE_USAGE_REPORT = "device_usage_report"
     UPDATE_DAILY_RESTRICTIONS = "update_daily_restrictions"
+    LIST_APPLICATIONS = "list_applications"
+    SET_APP_ALLOWED = "set_app_allowed"
 
 
 class NintendoParentalServiceArgument(StrEnum):
@@ -66,6 +75,8 @@ class NintendoParentalServiceArgument(StrEnum):
     BEDTIME_START = "bedtime_start"
     BEDTIME_END = "bedtime_end"
     MAX_PLAY_TIME = "max_play_time"
+    APPLICATION_ID = "application_id"
+    ALLOWED = "allowed"
 
 
 @callback
@@ -113,6 +124,35 @@ def async_setup_services(
                 probatio.Required(CommonServiceArgument.DEVICE_ID): cv.string,
             }
         ),
+    )
+    hass.services.async_register(
+        domain=DOMAIN,
+        service=NintendoParentalService.LIST_APPLICATIONS,
+        service_func=async_list_applications,
+        supports_response=SupportsResponse.ONLY,
+        schema=probatio.Schema(
+            {
+                probatio.Required(CommonServiceArgument.DEVICE_ID): cv.string,
+            }
+        ),
+    )
+    # Administrators only: allowed applications can be played regardless of
+    # the console's age rating restriction.
+    service.async_register_admin_service(
+        hass,
+        DOMAIN,
+        NintendoParentalService.SET_APP_ALLOWED,
+        async_set_app_allowed,
+        probatio.Schema(
+            {
+                probatio.Required(CommonServiceArgument.DEVICE_ID): cv.string,
+                probatio.Required(
+                    NintendoParentalServiceArgument.APPLICATION_ID
+                ): cv.string,
+                probatio.Required(NintendoParentalServiceArgument.ALLOWED): cv.boolean,
+            }
+        ),
+        supports_response=SupportsResponse.OPTIONAL,
     )
     service.async_register_admin_service(
         hass,
@@ -219,6 +259,27 @@ def _build_player_app_report(player: Player) -> list[dict[str, JsonValueType]]:
     ]
 
 
+def _application_info(application: Application) -> dict[str, JsonValueType]:
+    """Describe an application and whether it is on the allow list."""
+    return {
+        "application_id": application.application_id,
+        "name": application.name,
+        "allowed": application.safe_launch_setting == SafeLaunchSetting.ALLOW,
+    }
+
+
+def _get_application(device: Device, application_id: str) -> Application:
+    """Return an application on a device by its ID, ignoring case."""
+    for application in device.applications:
+        if application.application_id.casefold() == application_id.casefold():
+            return application
+    raise ServiceValidationError(
+        translation_domain=DOMAIN,
+        translation_key="application_not_found",
+        translation_placeholders={"application_id": application_id},
+    )
+
+
 async def async_add_bonus_time(call: ServiceCall) -> None:
     """Add bonus time to a device."""
     data = call.data
@@ -323,3 +384,55 @@ async def async_set_per_day_controls(call: ServiceCall) -> None:
                 "bedtime_alarm_disable": BEDTIME_ALARM_DISABLE,
             },
         ) from err
+
+
+async def async_list_applications(call: ServiceCall) -> ServiceResponse:
+    """Return the applications on a device and whether each is allowed."""
+    device = _get_nintendo_device(call.hass, call.data[CommonServiceArgument.DEVICE_ID])
+    return {
+        "applications": [
+            {**_application_info(application), "image": application.image_url}
+            for application in device.applications
+        ]
+    }
+
+
+async def async_set_app_allowed(call: ServiceCall) -> ServiceResponse:
+    """Add an application to, or remove it from, a device's allow list.
+
+    The library sends the device's whole restriction settings back to
+    Nintendo, so the device is refreshed first; otherwise a change made in
+    Nintendo's app since the last poll could be overwritten. Nothing is sent
+    if the application already has the requested state.
+    """
+    data = call.data
+    allowed: bool = data[NintendoParentalServiceArgument.ALLOWED]
+    device = _get_nintendo_device(call.hass, data[CommonServiceArgument.DEVICE_ID])
+    application = _get_application(
+        device, data[NintendoParentalServiceArgument.APPLICATION_ID]
+    )
+    setting = SafeLaunchSetting.ALLOW if allowed else SafeLaunchSetting.NONE
+    try:
+        await device.update()
+        changed = application.safe_launch_setting != setting
+        if changed:
+            await application.set_safe_launch_setting(setting)
+    except LookupError as err:
+        # The application is no longer on the console.
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="application_not_found",
+            translation_placeholders={"application_id": application.application_id},
+        ) from err
+    except ValueError as err:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="allow_list_unavailable",
+        ) from err
+    except (HttpException, ClientError, TimeoutError) as err:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="allow_list_update_failed",
+            translation_placeholders={"error": str(err)},
+        ) from err
+    return {**_application_info(application), "changed": changed}

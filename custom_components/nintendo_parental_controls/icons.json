@@ -9,8 +9,14 @@
     "device_usage_report": {
       "service": "mdi:chart-box-outline"
     },
+    "list_applications": {
+      "service": "mdi:format-list-bulleted"
+    },
     "player_usage_report": {
       "service": "mdi:account-clock-outline"
+    },
+    "set_app_allowed": {
+      "service": "mdi:playlist-check"
     },
     "update_daily_restrictions": {
       "service": "mdi:calendar-clock-outline"

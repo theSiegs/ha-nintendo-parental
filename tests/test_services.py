@@ -2,10 +2,12 @@
 
 from datetime import time
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import probatio
 from pynintendoauth.exceptions import HttpException
+from pynintendoparental.application import Application
+from pynintendoparental.enum import SafeLaunchSetting
 from pynintendoparental.exceptions import (
     BedtimeOutOfRangeError,
     ExtraPlayingTimeActiveError,
@@ -203,6 +205,24 @@ async def test_add_bonus_time_range(
             "service_device_not_found",
         ),
         (
+            NintendoParentalService.LIST_APPLICATIONS,
+            {CommonServiceArgument.DEVICE_ID: "invalid_device"},
+            True,
+            HOMEASSISTANT_DOMAIN,
+            "service_device_not_found",
+        ),
+        (
+            NintendoParentalService.SET_APP_ALLOWED,
+            {
+                CommonServiceArgument.DEVICE_ID: "invalid_device",
+                NintendoParentalServiceArgument.APPLICATION_ID: "testappid",
+                NintendoParentalServiceArgument.ALLOWED: True,
+            },
+            False,
+            HOMEASSISTANT_DOMAIN,
+            "service_device_not_found",
+        ),
+        (
             NintendoParentalService.PLAYER_USAGE_REPORT,
             {
                 CommonServiceArgument.DEVICE_ID: "invalid_device",
@@ -317,6 +337,14 @@ async def test_update_pin_code(
 @pytest.mark.parametrize(
     ("service", "payload", "func"),
     [
+        (
+            NintendoParentalService.SET_APP_ALLOWED,
+            {
+                NintendoParentalServiceArgument.APPLICATION_ID: "testappid",
+                NintendoParentalServiceArgument.ALLOWED: False,
+            },
+            "update",
+        ),
         (
             NintendoParentalService.CANCEL_BONUS_TIME,
             {},
@@ -631,3 +659,300 @@ async def test_cancel_bonus_time_failure(
         )
     assert err.value.translation_domain == DOMAIN
     assert err.value.translation_key == "cancel_bonus_time_failed"
+
+
+async def _set_app_allowed(
+    hass: HomeAssistant,
+    device_id: str,
+    application_id: str = "testappid",
+    allowed: bool = False,
+    return_response: bool = True,
+) -> dict[str, Any] | None:
+    """Call the set_app_allowed action."""
+    return await hass.services.async_call(
+        DOMAIN,
+        NintendoParentalService.SET_APP_ALLOWED,
+        {
+            CommonServiceArgument.DEVICE_ID: device_id,
+            NintendoParentalServiceArgument.APPLICATION_ID: application_id,
+            NintendoParentalServiceArgument.ALLOWED: allowed,
+        },
+        blocking=True,
+        return_response=return_response,
+    )
+
+
+async def _console_device_id(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+) -> str:
+    """Set up the integration and return the console's device ID."""
+    await setup_integration(hass, mock_config_entry)
+    device_entry = device_registry.async_get_device_by_identifier(
+        (DOMAIN, "testdevid"), mock_config_entry.entry_id
+    )
+    assert device_entry
+    return device_entry.id
+
+
+def _store_written_setting(app: MagicMock) -> None:
+    """Make the mocked write change the application, like the library does."""
+
+    async def set_safe_launch_setting(setting: SafeLaunchSetting) -> None:
+        app.safe_launch_setting = setting
+
+    app.set_safe_launch_setting.side_effect = set_safe_launch_setting
+
+
+@pytest.mark.usefixtures("mock_nintendo_client")
+async def test_list_applications(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_device: AsyncMock,
+) -> None:
+    """Test applications are listed with their ID and allow list state."""
+    other = MagicMock(spec=Application)
+    other.application_id = "otherappid"
+    other.name = "Other Game"
+    other.image_url = None
+    other.safe_launch_setting = SafeLaunchSetting.NONE
+    mock_nintendo_device.applications.add_application(other)
+    device_id = await _console_device_id(hass, device_registry, mock_config_entry)
+
+    response = await hass.services.async_call(
+        DOMAIN,
+        NintendoParentalService.LIST_APPLICATIONS,
+        {CommonServiceArgument.DEVICE_ID: device_id},
+        blocking=True,
+        return_response=True,
+    )
+
+    assert response == {
+        "applications": [
+            {
+                "application_id": "testappid",
+                "name": "Test Game Name",
+                "allowed": True,
+                "image": "http://example.com/image.png",
+            },
+            {
+                "application_id": "otherappid",
+                "name": "Other Game",
+                "allowed": False,
+                "image": None,
+            },
+        ]
+    }
+    mock_nintendo_device.update.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("initial", "allowed"),
+    [
+        (SafeLaunchSetting.ALLOW, False),
+        (SafeLaunchSetting.NONE, True),
+    ],
+)
+@pytest.mark.usefixtures("mock_nintendo_client")
+async def test_set_app_allowed(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_device: AsyncMock,
+    mock_nintendo_app: MagicMock,
+    initial: SafeLaunchSetting,
+    allowed: bool,
+) -> None:
+    """Test the device is refreshed, then the application's setting is written."""
+    mock_nintendo_app.safe_launch_setting = initial
+    _store_written_setting(mock_nintendo_app)
+    device_id = await _console_device_id(hass, device_registry, mock_config_entry)
+    calls: list[str] = []
+    mock_nintendo_device.update.side_effect = lambda: calls.append("update")
+    write = mock_nintendo_app.set_safe_launch_setting.side_effect
+
+    async def record_write(setting: SafeLaunchSetting) -> None:
+        calls.append("write")
+        await write(setting)
+
+    mock_nintendo_app.set_safe_launch_setting.side_effect = record_write
+
+    response = await _set_app_allowed(hass, device_id, allowed=allowed)
+
+    assert calls == ["update", "write"]
+    mock_nintendo_app.set_safe_launch_setting.assert_awaited_once_with(
+        SafeLaunchSetting.ALLOW if allowed else SafeLaunchSetting.NONE
+    )
+    assert response == {
+        "application_id": "testappid",
+        "name": "Test Game Name",
+        "allowed": allowed,
+        "changed": True,
+    }
+
+
+@pytest.mark.usefixtures("mock_nintendo_client")
+async def test_set_app_allowed_ignores_case(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_app: MagicMock,
+) -> None:
+    """Test application IDs match regardless of case."""
+    _store_written_setting(mock_nintendo_app)
+    device_id = await _console_device_id(hass, device_registry, mock_config_entry)
+
+    response = await _set_app_allowed(hass, device_id, application_id="TESTAPPID")
+
+    mock_nintendo_app.set_safe_launch_setting.assert_awaited_once_with(
+        SafeLaunchSetting.NONE
+    )
+    assert response
+    assert response["application_id"] == "testappid"
+
+
+@pytest.mark.usefixtures("mock_nintendo_client")
+async def test_set_app_allowed_unchanged(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_device: AsyncMock,
+    mock_nintendo_app: MagicMock,
+) -> None:
+    """Test nothing is written if the application already has the state."""
+    device_id = await _console_device_id(hass, device_registry, mock_config_entry)
+
+    assert await _set_app_allowed(hass, device_id, allowed=True) == {
+        "application_id": "testappid",
+        "name": "Test Game Name",
+        "allowed": True,
+        "changed": False,
+    }
+    mock_nintendo_device.update.assert_awaited_once_with()
+    mock_nintendo_app.set_safe_launch_setting.assert_not_called()
+
+
+@pytest.mark.usefixtures("mock_nintendo_client")
+async def test_set_app_allowed_uses_refreshed_state(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_device: AsyncMock,
+    mock_nintendo_app: MagicMock,
+) -> None:
+    """Test a change made in Nintendo's app since the last poll is seen."""
+    device_id = await _console_device_id(hass, device_registry, mock_config_entry)
+
+    def changed_in_nintendo_app() -> None:
+        mock_nintendo_app.safe_launch_setting = SafeLaunchSetting.NONE
+
+    mock_nintendo_device.update.side_effect = changed_in_nintendo_app
+
+    response = await _set_app_allowed(hass, device_id, allowed=False)
+
+    mock_nintendo_app.set_safe_launch_setting.assert_not_called()
+    assert response
+    assert response["changed"] is False
+    assert response["allowed"] is False
+
+
+@pytest.mark.usefixtures("mock_nintendo_client")
+async def test_set_app_allowed_without_response(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_app: MagicMock,
+) -> None:
+    """Test the response is optional."""
+    _store_written_setting(mock_nintendo_app)
+    device_id = await _console_device_id(hass, device_registry, mock_config_entry)
+
+    assert await _set_app_allowed(hass, device_id, return_response=False) is None
+    mock_nintendo_app.set_safe_launch_setting.assert_awaited_once()
+
+
+@pytest.mark.usefixtures("mock_nintendo_client")
+async def test_set_app_allowed_unknown_application(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_device: AsyncMock,
+) -> None:
+    """Test an application ID not on the console is refused before refreshing."""
+    device_id = await _console_device_id(hass, device_registry, mock_config_entry)
+
+    with pytest.raises(ServiceValidationError) as err:
+        await _set_app_allowed(hass, device_id, application_id="0100000000000000")
+
+    assert err.value.translation_domain == DOMAIN
+    assert err.value.translation_key == "application_not_found"
+    assert err.value.translation_placeholders == {"application_id": "0100000000000000"}
+    mock_nintendo_device.update.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("side_effect", "error", "translation_key"),
+    [
+        pytest.param(
+            LookupError("Application no longer in the allow list"),
+            ServiceValidationError,
+            "application_not_found",
+            id="no_longer_on_console",
+        ),
+        pytest.param(
+            ValueError("Settings not loaded"),
+            HomeAssistantError,
+            "allow_list_unavailable",
+            id="settings_not_loaded",
+        ),
+        pytest.param(
+            HttpException(status_code=500, message="Internal error"),
+            HomeAssistantError,
+            "allow_list_update_failed",
+            id="http_error",
+        ),
+    ],
+)
+@pytest.mark.usefixtures("mock_nintendo_client")
+async def test_set_app_allowed_write_errors(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_app: MagicMock,
+    side_effect: Exception,
+    error: type[HomeAssistantError],
+    translation_key: str,
+) -> None:
+    """Test errors while writing the setting are translated."""
+    mock_nintendo_app.set_safe_launch_setting.side_effect = side_effect
+    device_id = await _console_device_id(hass, device_registry, mock_config_entry)
+
+    with pytest.raises(error) as err:
+        await _set_app_allowed(hass, device_id)
+
+    assert type(err.value) is error
+    assert err.value.translation_domain == DOMAIN
+    assert err.value.translation_key == translation_key
+
+
+@pytest.mark.usefixtures("mock_nintendo_client")
+async def test_set_app_allowed_refresh_error(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_device: AsyncMock,
+    mock_nintendo_app: MagicMock,
+) -> None:
+    """Test nothing is written if the device cannot be refreshed first."""
+    device_id = await _console_device_id(hass, device_registry, mock_config_entry)
+    mock_nintendo_device.update.side_effect = HttpException(
+        status_code=500, message="Internal error"
+    )
+
+    with pytest.raises(HomeAssistantError) as err:
+        await _set_app_allowed(hass, device_id)
+
+    assert err.value.translation_key == "allow_list_update_failed"
+    mock_nintendo_app.set_safe_launch_setting.assert_not_called()
