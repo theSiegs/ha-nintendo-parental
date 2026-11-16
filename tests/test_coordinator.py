@@ -1,6 +1,6 @@
 """Test coordinator error handling."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from freezegun.api import FrozenDateTimeFactory
 from pynintendoauth.exceptions import (
@@ -12,8 +12,8 @@ from pynintendoparental.exceptions import NoDevicesFoundException
 import pytest
 from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
 
-from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
@@ -140,3 +140,112 @@ async def test_device_update_failure(
     for entity_id in entity_ids:
         assert hass.states.get(entity_id).state != STATE_UNAVAILABLE
     assert "Nintendo device testdevid is available again" in caplog.text
+
+
+def _reauth_flows(hass: HomeAssistant, entry: MockConfigEntry) -> list:
+    """Return the reauth flows in progress for an entry."""
+    return [
+        flow
+        for flow in hass.config_entries.flow.async_progress_by_handler(entry.domain)
+        if flow["context"]["source"] == SOURCE_REAUTH
+        and flow["context"]["entry_id"] == entry.entry_id
+    ]
+
+
+async def _poll(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
+    """Trigger the next coordinator update."""
+    freezer.tick(60)
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+
+REJECTED_TOKEN_ERRORS = [
+    pytest.param(
+        InvalidSessionTokenException(
+            status_code=400, message="Invalid grant", error_code="invalid_grant"
+        ),
+        id="invalid_grant",
+    ),
+    pytest.param(
+        HttpException(
+            status_code=401, message="Unauthorized", error_code="invalid_token"
+        ),
+        id="http_401",
+    ),
+]
+
+
+@pytest.mark.parametrize("exception", REJECTED_TOKEN_ERRORS)
+async def test_rejected_token_starts_reauth(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_client: AsyncMock,
+    mock_nintendo_authenticator: MagicMock,
+    freezer: FrozenDateTimeFactory,
+    exception: Exception,
+) -> None:
+    """Test a session token revoked after setup starts the reauth flow."""
+    await setup_integration(hass, mock_config_entry)
+    assert mock_config_entry.state is ConfigEntryState.LOADED
+
+    mock_nintendo_client.update.side_effect = exception
+    mock_nintendo_authenticator.async_complete_login.side_effect = (
+        InvalidSessionTokenException(
+            status_code=400, message="Invalid grant", error_code="invalid_grant"
+        )
+    )
+    await _poll(hass, freezer)
+
+    mock_nintendo_authenticator.async_complete_login.assert_called_with(
+        use_session_token=True
+    )
+    assert len(_reauth_flows(hass, mock_config_entry)) == 1
+    assert not mock_config_entry.runtime_data.last_update_success
+
+
+@pytest.mark.parametrize("exception", REJECTED_TOKEN_ERRORS)
+async def test_transient_token_rejection(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_client: AsyncMock,
+    mock_nintendo_authenticator: MagicMock,
+    freezer: FrozenDateTimeFactory,
+    exception: Exception,
+) -> None:
+    """Test a rejection that a fresh login clears does not start reauth."""
+    await setup_integration(hass, mock_config_entry)
+    logins = mock_nintendo_authenticator.async_complete_login.call_count
+
+    mock_nintendo_client.update.side_effect = exception
+    await _poll(hass, freezer)
+
+    assert mock_nintendo_authenticator.async_complete_login.call_count == logins + 1
+    assert not _reauth_flows(hass, mock_config_entry)
+    coordinator = mock_config_entry.runtime_data
+    assert not coordinator.last_update_success
+
+    mock_nintendo_client.update.side_effect = None
+    await _poll(hass, freezer)
+    assert coordinator.last_update_success
+
+
+async def test_login_check_unreachable(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_client: AsyncMock,
+    mock_nintendo_authenticator: MagicMock,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """Test no reauth is started when the login check cannot reach Nintendo."""
+    await setup_integration(hass, mock_config_entry)
+
+    mock_nintendo_client.update.side_effect = HttpException(
+        status_code=401, message="Unauthorized", error_code="invalid_token"
+    )
+    mock_nintendo_authenticator.async_complete_login.side_effect = HttpException(
+        status_code=503, message="Service unavailable"
+    )
+    await _poll(hass, freezer)
+
+    assert not _reauth_flows(hass, mock_config_entry)
+    assert not mock_config_entry.runtime_data.last_update_success
