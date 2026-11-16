@@ -1,142 +1,79 @@
-# Upstreaming plan
+# Upstreaming status
 
-Each fix in this repository is a separate commit and is meant to become its
-own pull request against `home-assistant/core`
-(`homeassistant/components/nintendo_parental_controls`). No pull requests or
-issues have been opened yet.
+This repository is only the install override for one house. The real work
+happens as one branch per pull request against `home-assistant/core`, each cut
+from core `dev` on its own, and this repository is rebuilt from them.
 
-To build a core PR from a commit: cherry-pick it onto core `dev`, move the
-files back to `homeassistant/components/nintendo_parental_controls` and
-`tests/components/nintendo_parental_controls`, switch test imports back to
-`homeassistant.components...`, drop the `translations/en.json` change (core
-generates it), and update `quality_scale.yaml` and the documentation in
-`home-assistant.io` where noted.
+Nothing has been pushed or opened yet. The core branches live in a local
+blobless clone of `home-assistant/core` (`~/ha-core` in WSL); the pull request
+texts are drafted separately.
 
-Core's own tests for the integration pass unchanged at every commit, except
-for one test-fixture change that comes with PR 3 (the mocked client runs
-device callbacks on `update()`, as the library does). Tests run with
-`pytest-homeassistant` 2026.11.0; `pytest-homeassistant-custom-component` has
-no 2026.11 release and now points to that package.
+## Branches in this repository
 
-The PRs are independent except where noted: 9 (diagnostics) reports fields
-added by 1 and 3, and 7 needs a library release first.
+| Branch | What it is | Status |
+| --- | --- | --- |
+| `ha/core-dev-next` | Core `dev` at `d0ccc62` (2026-11-15) + PRs 3, 4, 12, 2, 11, 10, 13 below, one commit each, + a fork-only fallback for Home Assistant 2026.11 | Built and tested (2026.11.0), not installed |
+| `ha/core-dev-next-playing` | `ha/core-dev-next` + the inferred "playing" binary sensors (old PR 1), fork-only | Built and tested, not installed. Install this one while Hearth still reads the playing sensors |
+| `install/combined` | Previous build: core 2026.11.0 + old PRs 1-13 stacked | What is installed now; keep for rollback |
+| `main` | Previous build without PRs 10-13 | Superseded |
 
-## Candidate pull requests
+Commit order on `ha/core-dev-next`: import of core `dev` → fallback for
+2026.11 → 3 → 4 → 12 → 2 → 11 → 10 → 13 → these notes. Each PR commit is the
+same change as its core branch; where two PRs meet (2 with 3 and 12: a new
+console's mocked device needs callbacks and `last_sync`), the fix is in the
+later commit.
 
-### 1. Inferred "playing" binary sensors
+## Pull requests to core
 
-- Adds a `binary_sensor` platform: per console (`{device_id}_playing`) and per
-  player (`{device_id}_{player_id}_playing`), with a `last_increase`
-  attribute, and an options flow for the hold-over period (default 10 min).
-- Issue: none open. This is a new feature, so it may need a
-  [feature request / architecture discussion](https://github.com/orgs/home-assistant/discussions)
-  first. Expect review questions about the state attribute (core discourages
-  them; it could become a separate timestamp sensor) and about inferring
-  state rather than reading it from the API.
-- Docs: document the binary sensors and the option on home-assistant.io.
+| # | Core branch | What | Type | Status | Depends on |
+| --- | --- | --- | --- | --- | --- |
+| 8 | `nintendo/bonus-time-selector` | `add_bonus_time` selector matches its 5-30 schema | Bugfix | Draft ready | none |
+| 3 | `nintendo/entity-unavailable` | Entities unavailable when a console fails to update; `entity-unavailable: done` | Code quality (Silver) | Draft ready | none |
+| 12 | `nintendo/last-synced-sensor` | "Last synced" timestamp sensor (from #159227) | New feature | Draft ready | none |
+| 4 | `nintendo/runtime-reauth` | Reauth when the token is rejected at runtime | Bugfix | Draft ready | none |
+| 2 | `nintendo/dynamic-devices` | Entities for consoles and players added after setup; `dynamic-devices: done` | New feature (Gold) | Draft ready | Best after library L-a is released and bumped (fully fixes #182387) |
+| 11 | `nintendo/bonus-time-range` | `add_bonus_time` 5-60 or -1 (unlimited) | New feature | Draft ready | none; supersedes 8's range (rebase whichever lands second) |
+| 10 | `nintendo/cancel-bonus-time` | `cancel_bonus_time` action (admin only, no button) | New feature | Draft ready | library #140 (released) |
+| 13 | `nintendo/app-allow-list` | `list_applications` / `set_app_allowed` actions | New feature | Draft ready | none |
 
-### 2. Add entities for consoles and players that appear after setup
+Library (`pantherale0/pynintendoparental`), prepared separately:
 
-- Each platform registers a coordinator listener that adds entities for new
-  consoles and new players (`async_setup_dynamic_entities` in `entity.py`).
-  Marks the `dynamic-devices` quality scale rule as done.
-- Issue: [#182387](https://github.com/home-assistant/core/issues/182387).
-- Related library change (separate PR to `pantherale0/pynintendoparental`):
-  `Device._hydrate_players_from_monthly_summary` is the only place players are
-  created, so consoles without a monthly summary (HTTP 404
-  `resource_is_not_found`) have no players. Creating players from the daily
-  summary as well (`Player.from_device_daily_summary` already exists) would
-  fix the rest of #182387.
+| # | What | Status |
+| --- | --- | --- |
+| L-a | Players from daily summaries (fixes core #182387 together with 2) | Separate work |
+| L-b | `update(monthly_summary=...)` to skip the monthly summary | Separate work; unblocks 7 |
 
-### 3. Mark entities unavailable when their console fails to update
+### Opening order
 
-- `NintendoParental.update()` wraps each `Device.update()` in a broad
-  `except Exception` and only logs it, so stale data looked current. The
-  coordinator now registers a device callback (the library runs callbacks only
-  at the end of a successful `Device.update()`), keeps a last-successful-update
-  time per console, and `NintendoDevice.available` is false for consoles not
-  updated in the last poll. Marks `entity-unavailable` as done.
-- Tests: `conftest.py` makes the mocked client run device callbacks on
-  `update()`, like the library does.
-- Issue: none open; it is the `entity-unavailable` rule (todo) in the
-  integration's `quality_scale.yaml`. Related log noise:
-  [#160261](https://github.com/home-assistant/core/issues/160261).
-- A cleaner long-term fix is in the library: re-raise, or expose a per-device
-  "last updated" / "update failed" flag (`Device.stats_update_failed` exists
-  but only covers the remaining-time calculation).
+Library first (L-a, L-b), then core **8**, **3**, **12**, **4**, **2**. Then
+**11**, **10**, **13** (10 before 13): these are on the maintainer's roadmap
+(library issue #45), so their descriptions say so and offer to let him adapt
+or take them over. Keep at most 2-3 core pull requests open at a time.
 
-### 4. Start reauthentication when the token is rejected at runtime
+### Not proposed, or held
 
-- On `InvalidSessionTokenException` or an HTTP 401 while polling, the
-  coordinator calls `Authenticator.async_complete_login(use_session_token=True)`;
-  if that raises `InvalidSessionTokenException` /
-  `InvalidOAuthConfigurationException` it raises `ConfigEntryAuthFailed`
-  (reauth flow), otherwise `UpdateFailed`. Core's existing
-  `test_update_errors` case for `InvalidSessionTokenException` still passes
-  unchanged.
-- Issues: [#161104](https://github.com/home-assistant/core/issues/161104),
-  [#160261](https://github.com/home-assistant/core/issues/160261) (occasional
-  `invalid_token`, which is why a single 401 must not start reauth).
-- `reauthentication-flow` is already marked done in `quality_scale.yaml`; this
-  makes it work after setup too.
+| # | What | Why |
+| --- | --- | --- |
+| 1 | Inferred "playing" binary sensors + options flow | Dropped upstream: inferred state, a state attribute and a new platform in one PR. Hearth will infer playing from core's per-player minutes. Kept fork-only on `ha/core-dev-next-playing` until then |
+| 5 | Translated errors for every setter and action | Optional; would need rework to use the library's `error_key`. 10 and 13 handle their own errors |
+| 6 | `key_by_player_id` on `device_usage_report` | Held; nothing uses it |
+| 7 | Fetch the monthly summary at most hourly | Needs L-b released first |
+| 9 | Diagnostics | Optional |
 
-### 5. Translate library errors raised by actions
+## Rebuilding this repository
 
-- New `util.handle_device_errors()` context manager maps
-  `ExtraPlayingTimeActiveError`, `InvalidDeviceStateError`,
-  `BedtimeOutOfRangeError`, `DailyPlaytimeOutOfRangeError`,
-  `InputValidationError` to `ServiceValidationError`, and `DeviceError`,
-  `HttpException`, `aiohttp.ClientError`, `TimeoutError` to
-  `HomeAssistantError`, all with translation keys. Used by the number, switch,
-  select and time setters and by `add_bonus_time`, `update_pin_code` and
-  `update_daily_restrictions` (whose specific messages are kept). Marks
-  `action-exceptions` as done.
-- Issue: none specific; it is the `action-exceptions` rule (todo, "Library
-  errors are not handled in custom actions and in switch, number and select
-  actions") in `quality_scale.yaml`. Possibly related:
-  [#167425](https://github.com/home-assistant/core/issues/167425) (bonus time
-  silently doing nothing).
-
-### 6. Option to key `device_usage_report` by player ID
-
-- Adds an optional `key_by_player_id` field (default `false`). When true, the
-  response is `{player_id: {"nickname": ..., "apps": [...]}}`; the default
-  `{nickname: [...]}` shape is unchanged, so existing automations keep
-  working.
-- Issue: none open. Core may prefer changing the shape outright (a breaking
-  change with a release note) over a flag; the flag keeps this repository a
-  drop-in replacement.
-
-### 7. Fetch the monthly summary at most hourly (blocked on the library)
-
-- Not implemented. `Device.update()` in `pynintendoparental` 2.6.2 (and 2.6.3)
-  always runs `get_monthly_summary()` alongside the daily summary, settings and
-  device fetches: two extra requests per console per 60 s poll for data that
-  changes once a month. `NintendoParental.update()` has no parameter to skip
-  it, and the integration would have to replace library methods to throttle
-  it.
-- Needed first, in `pantherale0/pynintendoparental`: an option such as
-  `NintendoParental.update(monthly_summary=False)` /
-  `Device.update(monthly_summary=False)`, or a built-in refresh interval for
-  the monthly summary. Then the coordinator can request it once an hour.
-  The same change should create players from the daily summary (see 2).
-- Issue: none open.
-
-### 8. Match the `add_bonus_time` selector to its schema
-
-- `services.yaml` offered -1 to 1440 minutes while the action schema only
-  accepts 5 to 30 (as its description says), so most values in the UI failed
-  validation. The selector is now 5 to 30.
-- Issue: none open. Possibly related to
-  [#156288](https://github.com/home-assistant/core/issues/156288) /
-  [#167425](https://github.com/home-assistant/core/issues/167425) (bonus time
-  reported as not working).
-
-### 9. Add diagnostics
-
-- `diagnostics.py` with per-console state, update status, play timer
-  regulations and play inference; redacts the session token, console name,
-  serial number, player nicknames and images. Marks `diagnostics` as done.
-  (In core, drop the play-inference and availability fields if PRs 1 and 3
-  are not merged first.)
-- Issue: none; it is the `diagnostics` rule (todo) in `quality_scale.yaml`.
+1. In the core clone, update `dev`, rebase the open `nintendo/*` branches, and
+   merge them into a throwaway combined branch in the order above.
+2. Here, branch from the last build, import the integration and tests from
+   core `dev` (one commit), keep the 2026.11 fallback while it is needed, and
+   apply each combined merge as its own commit, mapping
+   `homeassistant/components/nintendo_parental_controls` to
+   `custom_components/nintendo_parental_controls`,
+   `tests/components/nintendo_parental_controls` to `tests`, and
+   `homeassistant.components.nintendo_parental_controls` to
+   `custom_components.nintendo_parental_controls` in tests.
+3. Regenerate `translations/en.json` (`script/gen_translations.py`) and run
+   `pytest`.
+4. Drop each PR's commit once it ships in a core release; drop the fallback
+   once 2026.12 is the oldest supported release; archive the repository when
+   nothing is left.

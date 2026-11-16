@@ -19,6 +19,7 @@ ignore = ["E501"]
 "tests/conftest.py" = ["I001"]
 "tests/test_config_flow.py" = ["I001"]
 "tests/test_services.py" = ["I001"]
+"tests/test_entity.py" = ["I001"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
