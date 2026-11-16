@@ -10,7 +10,7 @@ from pytest_homeassistant.common import (
 )
 from syrupy.assertion import SnapshotAssertion
 
-from homeassistant.const import Platform
+from homeassistant.const import STATE_UNKNOWN, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
@@ -62,3 +62,43 @@ async def test_player_sensor_none_handling(
     assert state is not None
     assert state.state == "unknown"
     assert "entity_picture" not in state.attributes
+
+
+async def test_last_sync_sensor(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_client: AsyncMock,
+    mock_nintendo_device: AsyncMock,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """Test the last synced sensor follows the console's last settings sync."""
+    with patch(
+        "custom_components.nintendo_parental_controls._PLATFORMS",
+        [Platform.SENSOR],
+    ):
+        await setup_integration(hass, mock_config_entry)
+
+    entity_id = "sensor.home_assistant_test_last_synced"
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == "2026-11-06T06:00:00+00:00"
+
+    # The console applied newer settings.
+    mock_nintendo_device.last_sync = 1793948400.0
+    freezer.tick(60)
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == "2026-11-06T07:00:00+00:00"
+
+    # Nintendo returned no sync time.
+    mock_nintendo_device.last_sync = None
+    freezer.tick(60)
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == STATE_UNKNOWN
