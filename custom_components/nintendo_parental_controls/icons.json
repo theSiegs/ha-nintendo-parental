@@ -3,6 +3,9 @@
     "add_bonus_time": {
       "service": "mdi:timer-plus-outline"
     },
+    "cancel_bonus_time": {
+      "service": "mdi:timer-cancel-outline"
+    },
     "device_usage_report": {
       "service": "mdi:chart-box-outline"
     },

@@ -5,6 +5,7 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import probatio
+from pynintendoauth.exceptions import HttpException
 from pynintendoparental.exceptions import (
     BedtimeOutOfRangeError,
     ExtraPlayingTimeActiveError,
@@ -28,7 +29,11 @@ from custom_components.nintendo_parental_controls.services import (
 )
 from homeassistant.const import CommonServiceArgument
 from homeassistant.core import DOMAIN as HOMEASSISTANT_DOMAIN, Context, HomeAssistant
-from homeassistant.exceptions import ServiceValidationError, Unauthorized
+from homeassistant.exceptions import (
+    HomeAssistantError,
+    ServiceValidationError,
+    Unauthorized,
+)
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.service import async_get_all_descriptions
 
@@ -184,6 +189,13 @@ async def test_add_bonus_time_range(
             "invalid_pin_length",
         ),
         (
+            NintendoParentalService.CANCEL_BONUS_TIME,
+            {CommonServiceArgument.DEVICE_ID: "invalid_device"},
+            False,
+            HOMEASSISTANT_DOMAIN,
+            "service_device_not_found",
+        ),
+        (
             NintendoParentalService.DEVICE_USAGE_REPORT,
             {CommonServiceArgument.DEVICE_ID: "invalid_device"},
             True,
@@ -305,6 +317,11 @@ async def test_update_pin_code(
 @pytest.mark.parametrize(
     ("service", "payload", "func"),
     [
+        (
+            NintendoParentalService.CANCEL_BONUS_TIME,
+            {},
+            "cancel_extra_time",
+        ),
         (
             NintendoParentalService.UPDATE_PIN_CODE,
             {
@@ -556,3 +573,61 @@ async def test_update_daily_restrictions_exceptions(
     assert err.value.translation_domain == DOMAIN
     assert err.value.translation_key == translation_key
     assert err.value.translation_placeholders == translation_placeholders
+
+
+@pytest.mark.parametrize("extra_playing_time", [30, -1, None])
+async def test_cancel_bonus_time(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_client: AsyncMock,
+    mock_nintendo_device: AsyncMock,
+    extra_playing_time: int | None,
+) -> None:
+    """Test cancel bonus time is sent even if the last poll saw none."""
+    mock_nintendo_device.extra_playing_time = extra_playing_time
+    await setup_integration(hass, mock_config_entry)
+    device_entry = device_registry.async_get_device_by_identifier(
+        (DOMAIN, "testdevid"), mock_config_entry.entry_id
+    )
+    assert device_entry
+    await hass.services.async_call(
+        DOMAIN,
+        NintendoParentalService.CANCEL_BONUS_TIME,
+        {CommonServiceArgument.DEVICE_ID: device_entry.id},
+        blocking=True,
+    )
+    mock_nintendo_device.cancel_extra_time.assert_awaited_once_with()
+
+
+@pytest.mark.parametrize(
+    "side_effect",
+    [
+        HttpException(status_code=500, message="Internal error"),
+        TimeoutError(),
+    ],
+)
+async def test_cancel_bonus_time_failure(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_client: AsyncMock,
+    mock_nintendo_device: AsyncMock,
+    side_effect: Exception,
+) -> None:
+    """Test a failed cancel raises a translated error."""
+    mock_nintendo_device.cancel_extra_time.side_effect = side_effect
+    await setup_integration(hass, mock_config_entry)
+    device_entry = device_registry.async_get_device_by_identifier(
+        (DOMAIN, "testdevid"), mock_config_entry.entry_id
+    )
+    assert device_entry
+    with pytest.raises(HomeAssistantError) as err:
+        await hass.services.async_call(
+            DOMAIN,
+            NintendoParentalService.CANCEL_BONUS_TIME,
+            {CommonServiceArgument.DEVICE_ID: device_entry.id},
+            blocking=True,
+        )
+    assert err.value.translation_domain == DOMAIN
+    assert err.value.translation_key == "cancel_bonus_time_failed"

@@ -3,7 +3,9 @@
 from enum import StrEnum
 import logging
 
+from aiohttp import ClientError
 import probatio
+from pynintendoauth.exceptions import HttpException
 from pynintendoparental.const import DAYS_OF_WEEK
 from pynintendoparental.device import Device
 from pynintendoparental.enum import SafeLaunchSetting
@@ -19,7 +21,7 @@ try:
 except ImportError:  # Home Assistant 2026.11 and older (fork only)
     from .compat import CommonServiceArgument  # type: ignore[assignment]
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse, callback
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import (
     config_validation as cv,
     entity_registry as er,
@@ -48,6 +50,7 @@ class NintendoParentalService(StrEnum):
     """Store keys for Nintendo Parental services."""
 
     ADD_BONUS_TIME = "add_bonus_time"
+    CANCEL_BONUS_TIME = "cancel_bonus_time"
     UPDATE_PIN_CODE = "update_pin_code"
     PLAYER_USAGE_REPORT = "player_usage_report"
     DEVICE_USAGE_REPORT = "device_usage_report"
@@ -137,6 +140,17 @@ def async_setup_services(
     service.async_register_admin_service(
         hass,
         DOMAIN,
+        NintendoParentalService.CANCEL_BONUS_TIME,
+        async_cancel_bonus_time,
+        probatio.Schema(
+            {
+                probatio.Required(CommonServiceArgument.DEVICE_ID): cv.string,
+            }
+        ),
+    )
+    service.async_register_admin_service(
+        hass,
+        DOMAIN,
         NintendoParentalService.UPDATE_PIN_CODE,
         async_update_pin_code,
         probatio.Schema(
@@ -212,6 +226,24 @@ async def async_add_bonus_time(call: ServiceCall) -> None:
     bonus_time: int = data[NintendoParentalServiceArgument.BONUS_TIME]
     device = _get_nintendo_device(call.hass, device_id)
     return await device.add_extra_time(bonus_time)
+
+
+async def async_cancel_bonus_time(call: ServiceCall) -> None:
+    """Cancel today's extra playing time on a device.
+
+    Always sent to Nintendo: extra playing time granted in Nintendo's app
+    since the last poll would not be known yet.
+    """
+    device_id: str = call.data[CommonServiceArgument.DEVICE_ID]
+    device = _get_nintendo_device(call.hass, device_id)
+    try:
+        await device.cancel_extra_time()
+    except (HttpException, ClientError, TimeoutError) as err:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="cancel_bonus_time_failed",
+            translation_placeholders={"error": str(err)},
+        ) from err
 
 
 async def async_update_pin_code(call: ServiceCall) -> None:
