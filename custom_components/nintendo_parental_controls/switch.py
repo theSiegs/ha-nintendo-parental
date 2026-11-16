@@ -17,8 +17,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import NintendoParentalControlsConfigEntry, NintendoUpdateCoordinator
-from .entity import NintendoDevice, async_setup_dynamic_entities
-from .util import handle_device_errors
+from .entity import NintendoDevice
 
 PARALLEL_UPDATES = 1
 
@@ -58,13 +57,10 @@ async def async_setup_entry(
     async_add_devices: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the switch platform."""
-    async_setup_dynamic_entities(
-        entry,
-        async_add_devices,
-        lambda coordinator, device: (
-            NintendoParentalControlsSwitchEntity(coordinator, device, switch)
-            for switch in SWITCH_DESCRIPTIONS
-        ),
+    async_add_devices(
+        NintendoParentalControlsSwitchEntity(entry.runtime_data, device, switch)
+        for device in entry.runtime_data.api.devices.values()
+        for switch in SWITCH_DESCRIPTIONS
     )
 
 
@@ -92,11 +88,9 @@ class NintendoParentalControlsSwitchEntity(NintendoDevice, SwitchEntity):
     @override
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        with handle_device_errors():
-            await self.entity_description.turn_on_fn(self._device)
+        await self.entity_description.turn_on_fn(self._device)
 
     @override
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        with handle_device_errors():
-            await self.entity_description.turn_off_fn(self._device)
+        await self.entity_description.turn_off_fn(self._device)

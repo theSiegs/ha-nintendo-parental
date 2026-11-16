@@ -14,7 +14,7 @@ from pynintendoparental.exceptions import (
 )
 from pynintendoparental.player import Player
 
-from homeassistant.const import ATTR_DEVICE_ID, ATTR_ENTITY_ID, CONF_PIN
+from homeassistant.const import CommonServiceArgument
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import (
@@ -25,12 +25,6 @@ from homeassistant.helpers import (
 from homeassistant.util.json import JsonValueType
 
 from .const import (
-    ATTR_BEDTIME_END,
-    ATTR_BEDTIME_START,
-    ATTR_BONUS_TIME,
-    ATTR_DAY_OF_WEEK,
-    ATTR_KEY_BY_PLAYER_ID,
-    ATTR_MAX_PLAY_TIME,
     BEDTIME_ALARM_DISABLE,
     BEDTIME_ALARM_MAX,
     BEDTIME_ALARM_MIN,
@@ -40,7 +34,6 @@ from .const import (
 )
 from .coordinator import NintendoParentalControlsConfigEntry
 from .sensor import NintendoParentalControlsSensor
-from .util import handle_device_errors
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,6 +48,17 @@ class NintendoParentalService(StrEnum):
     UPDATE_DAILY_RESTRICTIONS = "update_daily_restrictions"
 
 
+class NintendoParentalServiceArgument(StrEnum):
+    """Store keys for Nintendo Parental service arguments."""
+
+    BONUS_TIME = "bonus_time"
+    PIN = "pin"
+    DAY_OF_WEEK = "day_of_week"
+    BEDTIME_START = "bedtime_start"
+    BEDTIME_END = "bedtime_end"
+    MAX_PLAY_TIME = "max_play_time"
+
+
 @callback
 def async_setup_services(
     hass: HomeAssistant,
@@ -66,10 +70,10 @@ def async_setup_services(
         service_func=async_add_bonus_time,
         schema=probatio.Schema(
             {
-                probatio.Required(ATTR_DEVICE_ID): cv.string,
-                probatio.Required(ATTR_BONUS_TIME): probatio.All(
-                    int, probatio.Range(min=5, max=30)
-                ),
+                probatio.Required(CommonServiceArgument.DEVICE_ID): cv.string,
+                probatio.Required(
+                    NintendoParentalServiceArgument.BONUS_TIME
+                ): probatio.All(int, probatio.Range(min=5, max=30)),
             }
         ),
     )
@@ -80,8 +84,8 @@ def async_setup_services(
         supports_response=SupportsResponse.ONLY,
         schema=probatio.Schema(
             {
-                probatio.Required(ATTR_DEVICE_ID): cv.string,
-                probatio.Required(ATTR_ENTITY_ID): cv.string,
+                probatio.Required(CommonServiceArgument.DEVICE_ID): cv.string,
+                probatio.Required(CommonServiceArgument.ENTITY_ID): cv.string,
             }
         ),
     )
@@ -92,8 +96,7 @@ def async_setup_services(
         supports_response=SupportsResponse.ONLY,
         schema=probatio.Schema(
             {
-                probatio.Required(ATTR_DEVICE_ID): cv.string,
-                probatio.Optional(ATTR_KEY_BY_PLAYER_ID, default=False): cv.boolean,
+                probatio.Required(CommonServiceArgument.DEVICE_ID): cv.string,
             }
         ),
     )
@@ -104,13 +107,19 @@ def async_setup_services(
         async_set_per_day_controls,
         probatio.Schema(
             {
-                probatio.Required(ATTR_DEVICE_ID): cv.string,
-                probatio.Required(ATTR_DAY_OF_WEEK): probatio.In(DAYS_OF_WEEK),
-                probatio.Inclusive(ATTR_BEDTIME_START, "bedtime"): cv.time,
-                probatio.Inclusive(ATTR_BEDTIME_END, "bedtime"): cv.time,
-                probatio.Optional(ATTR_MAX_PLAY_TIME): probatio.All(
-                    int, probatio.Range(min=0, max=360)
-                ),
+                probatio.Required(CommonServiceArgument.DEVICE_ID): cv.string,
+                probatio.Required(
+                    NintendoParentalServiceArgument.DAY_OF_WEEK
+                ): probatio.In(DAYS_OF_WEEK),
+                probatio.Inclusive(
+                    NintendoParentalServiceArgument.BEDTIME_START, "bedtime"
+                ): cv.time,
+                probatio.Inclusive(
+                    NintendoParentalServiceArgument.BEDTIME_END, "bedtime"
+                ): cv.time,
+                probatio.Optional(
+                    NintendoParentalServiceArgument.MAX_PLAY_TIME
+                ): probatio.All(int, probatio.Range(min=0, max=360)),
             }
         ),
     )
@@ -121,8 +130,10 @@ def async_setup_services(
         async_update_pin_code,
         probatio.Schema(
             {
-                probatio.Required(ATTR_DEVICE_ID): cv.string,
-                probatio.Required(probatio.Secret(CONF_PIN)): cv.string,
+                probatio.Required(CommonServiceArgument.DEVICE_ID): cv.string,
+                probatio.Required(
+                    probatio.Secret(NintendoParentalServiceArgument.PIN)
+                ): cv.string,
             }
         ),
     )
@@ -186,33 +197,31 @@ def _build_player_app_report(player: Player) -> list[dict[str, JsonValueType]]:
 async def async_add_bonus_time(call: ServiceCall) -> None:
     """Add bonus time to a device."""
     data = call.data
-    device_id: str = data[ATTR_DEVICE_ID]
-    bonus_time: int = data[ATTR_BONUS_TIME]
+    device_id: str = data[CommonServiceArgument.DEVICE_ID]
+    bonus_time: int = data[NintendoParentalServiceArgument.BONUS_TIME]
     device = _get_nintendo_device(call.hass, device_id)
-    with handle_device_errors():
-        await device.add_extra_time(bonus_time)
+    return await device.add_extra_time(bonus_time)
 
 
 async def async_update_pin_code(call: ServiceCall) -> None:
     """Update the PIN code for a device."""
     data = call.data
-    device_id: str = data[ATTR_DEVICE_ID]
-    new_pin: str = data[CONF_PIN]
+    device_id: str = data[CommonServiceArgument.DEVICE_ID]
+    new_pin: str = data[NintendoParentalServiceArgument.PIN]
     if not new_pin.isdigit() or len(new_pin) < 4 or len(new_pin) > 8:
         raise ServiceValidationError(
             translation_domain=DOMAIN,
             translation_key="invalid_pin_length",
         )
     device = _get_nintendo_device(call.hass, device_id)
-    with handle_device_errors():
-        await device.set_new_pin(new_pin)
+    return await device.set_new_pin(new_pin)
 
 
 async def async_get_player_usage(call: ServiceCall) -> dict:
     """Get player usage."""
     data = call.data
-    device_id: str = data[ATTR_DEVICE_ID]
-    entity_id: str = data[ATTR_ENTITY_ID]
+    device_id: str = data[CommonServiceArgument.DEVICE_ID]
+    entity_id: str = data[CommonServiceArgument.ENTITY_ID]
     device = _get_nintendo_device(call.hass, device_id)
     player = _get_nintendo_player(call.hass, device, entity_id)
     return {"apps": _build_player_app_report(player)}
@@ -221,18 +230,8 @@ async def async_get_player_usage(call: ServiceCall) -> dict:
 async def async_get_device_usage_report(call: ServiceCall) -> dict:
     """Return the device usage report."""
     data = call.data
-    device_id: str = data[ATTR_DEVICE_ID]
+    device_id: str = data[CommonServiceArgument.DEVICE_ID]
     device = _get_nintendo_device(call.hass, device_id)
-    if data[ATTR_KEY_BY_PLAYER_ID]:
-        return {
-            player.player_id: {
-                "nickname": player.nickname,
-                "apps": _build_player_app_report(player),
-            }
-            for player in device.players
-        }
-    # Keyed by nickname for backward compatibility; players with the same
-    # nickname overwrite each other.
     return {
         player.nickname: _build_player_app_report(player) for player in device.players
     }
@@ -241,41 +240,43 @@ async def async_get_device_usage_report(call: ServiceCall) -> dict:
 async def async_set_per_day_controls(call: ServiceCall) -> None:
     """Set per-day restrictions for a given device."""
     data = call.data
-    device_id: str = data[ATTR_DEVICE_ID]
+    device_id: str = data[CommonServiceArgument.DEVICE_ID]
     device = _get_nintendo_device(call.hass, device_id)
-    restriction_enabled = data.get(ATTR_MAX_PLAY_TIME) is not None
+    restriction_enabled = (
+        data.get(NintendoParentalServiceArgument.MAX_PLAY_TIME) is not None
+    )
     bedtime_enabled = (
-        data.get(ATTR_BEDTIME_START) and data.get(ATTR_BEDTIME_END)
+        data.get(NintendoParentalServiceArgument.BEDTIME_START)
+        and data.get(NintendoParentalServiceArgument.BEDTIME_END)
     ) is not None
-    with handle_device_errors():
-        try:
-            await device.set_daily_restrictions(
-                enabled=restriction_enabled,
-                bedtime_enabled=bedtime_enabled,
-                day_of_week=data[ATTR_DAY_OF_WEEK],
-                bedtime_start=data.get(ATTR_BEDTIME_END),
-                bedtime_end=data.get(ATTR_BEDTIME_START),
-                max_daily_playtime=data.get(ATTR_MAX_PLAY_TIME),
-            )
-        except InvalidDeviceStateError as err:
-            raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="requires_daily_restrictions",
-            ) from err
-        except ExtraPlayingTimeActiveError as err:
-            raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="extra_playing_time_active",
-            ) from err
-        except BedtimeOutOfRangeError as err:
-            raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="bedtime_out_of_range",
-                translation_placeholders={
-                    "bedtime_alarm_min": BEDTIME_ALARM_MIN,
-                    "bedtime_alarm_max": BEDTIME_ALARM_MAX,
-                    "bedtime_end_time_min": BEDTIME_END_TIME_MIN,
-                    "bedtime_end_time_max": BEDTIME_END_TIME_MAX,
-                    "bedtime_alarm_disable": BEDTIME_ALARM_DISABLE,
-                },
-            ) from err
+    try:
+        await device.set_daily_restrictions(
+            enabled=restriction_enabled,
+            bedtime_enabled=bedtime_enabled,
+            day_of_week=data[NintendoParentalServiceArgument.DAY_OF_WEEK],
+            bedtime_start=data.get(NintendoParentalServiceArgument.BEDTIME_END),
+            bedtime_end=data.get(NintendoParentalServiceArgument.BEDTIME_START),
+            max_daily_playtime=data.get(NintendoParentalServiceArgument.MAX_PLAY_TIME),
+        )
+    except InvalidDeviceStateError as err:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="requires_daily_restrictions",
+        ) from err
+    except ExtraPlayingTimeActiveError as err:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="extra_playing_time_active",
+        ) from err
+    except BedtimeOutOfRangeError as err:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="bedtime_out_of_range",
+            translation_placeholders={
+                "bedtime_alarm_min": BEDTIME_ALARM_MIN,
+                "bedtime_alarm_max": BEDTIME_ALARM_MAX,
+                "bedtime_end_time_min": BEDTIME_END_TIME_MIN,
+                "bedtime_end_time_max": BEDTIME_END_TIME_MAX,
+                "bedtime_alarm_disable": BEDTIME_ALARM_DISABLE,
+            },
+        ) from err

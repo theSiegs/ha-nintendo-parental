@@ -12,5 +12,5 @@
   "loggers": ["pynintendoauth", "pynintendoparental"],
   "quality_scale": "bronze",
   "requirements": ["pynintendoauth==1.0.3", "pynintendoparental==2.6.2"],
-  "version": "2026.11.0"
+  "version": "2026.12.0.dev1"
 }

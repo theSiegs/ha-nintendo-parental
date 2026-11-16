@@ -14,13 +14,3 @@ BEDTIME_END_TIME_MAX = "09:00"
 APP_SETUP_URL = (
     "https://www.nintendo.com/my/support/switch/parentalcontrols/app/setup.html"
 )
-ATTR_BONUS_TIME = "bonus_time"
-ATTR_DAY_OF_WEEK = "day_of_week"
-ATTR_BEDTIME_START = "bedtime_start"
-ATTR_BEDTIME_END = "bedtime_end"
-ATTR_MAX_PLAY_TIME = "max_play_time"
-ATTR_KEY_BY_PLAYER_ID = "key_by_player_id"
-
-CONF_PLAYING_HOLDOVER = "playing_holdover"
-DEFAULT_PLAYING_HOLDOVER = 10
-ATTR_LAST_INCREASE = "last_increase"
