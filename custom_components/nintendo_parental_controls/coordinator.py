@@ -1,6 +1,7 @@
 """Nintendo parental controls data coordinator."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
+from functools import partial
 import logging
 from typing import override
 
@@ -16,6 +17,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 
@@ -47,12 +49,55 @@ class NintendoUpdateCoordinator(DataUpdateCoordinator[None]):
         self.api = NintendoParental(
             authenticator, hass.config.time_zone, hass.config.language
         )
+        self._device_last_update: dict[str, datetime] = {}
+        self._watched_devices: set[str] = set()
+        self._failed_devices: set[str] = set()
+
+    def device_available(self, device_id: str) -> bool:
+        """Return if the last poll updated this device."""
+        return device_id not in self._failed_devices
+
+    def _record_device_update(self, device_id: str) -> None:
+        """Record that the library finished updating a device."""
+        self._device_last_update[device_id] = dt_util.utcnow()
+
+    def _watch_devices(self) -> None:
+        """Get notified when the library finishes updating a device.
+
+        The library logs and swallows errors raised while updating a single
+        device, leaving its previous data in place. It only runs device
+        callbacks at the end of a successful update, so they tell which
+        devices are current.
+        """
+        for device in self.api.devices.values():
+            if device.device_id not in self._watched_devices:
+                self._watched_devices.add(device.device_id)
+                device.add_device_callback(
+                    partial(self._record_device_update, device.device_id)
+                )
+
+    def _check_device_updates(self, started: datetime) -> None:
+        """Mark devices the library failed to update in this poll."""
+        failed = {
+            device_id
+            for device_id in self._watched_devices
+            if (last_update := self._device_last_update.get(device_id)) is None
+            or last_update < started
+        }
+        for device_id in failed - self._failed_devices:
+            _LOGGER.warning(
+                "Updating Nintendo device %s failed, marking it unavailable", device_id
+            )
+        for device_id in self._failed_devices - failed:
+            _LOGGER.info("Nintendo device %s is available again", device_id)
+        self._failed_devices = failed
 
     @override
     async def _async_update_data(self) -> None:
         """Update data from Nintendo's API."""
+        started = dt_util.utcnow()
         try:
-            return await self.api.update()
+            await self.api.update()
         except InvalidOAuthConfigurationException as err:
             # pylint: disable-next=home-assistant-exception-translation-key-missing
             raise ConfigEntryError(
@@ -74,3 +119,6 @@ class NintendoUpdateCoordinator(DataUpdateCoordinator[None]):
                     translation_key="update_required",
                 ) from err
             raise UpdateFailed(retry_after=900) from err
+        self._check_device_updates(started)
+        # Devices found in this poll are watched from the next one on.
+        self._watch_devices()
