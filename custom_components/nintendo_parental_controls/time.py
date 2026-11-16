@@ -24,7 +24,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import NintendoParentalControlsConfigEntry, NintendoUpdateCoordinator
-from .entity import NintendoDevice
+from .entity import NintendoDevice, async_setup_dynamic_entities
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,10 +69,13 @@ async def async_setup_entry(
     async_add_devices: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the time platform."""
-    async_add_devices(
-        NintendoParentalControlsTimeEntity(entry.runtime_data, device, entity)
-        for device in entry.runtime_data.api.devices.values()
-        for entity in TIME_DESCRIPTIONS
+    async_setup_dynamic_entities(
+        entry,
+        async_add_devices,
+        lambda coordinator, device: (
+            NintendoParentalControlsTimeEntity(coordinator, device, entity)
+            for entity in TIME_DESCRIPTIONS
+        ),
     )
 
 

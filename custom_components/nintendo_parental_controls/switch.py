@@ -17,7 +17,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import NintendoParentalControlsConfigEntry, NintendoUpdateCoordinator
-from .entity import NintendoDevice
+from .entity import NintendoDevice, async_setup_dynamic_entities
 
 PARALLEL_UPDATES = 1
 
@@ -57,10 +57,13 @@ async def async_setup_entry(
     async_add_devices: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the switch platform."""
-    async_add_devices(
-        NintendoParentalControlsSwitchEntity(entry.runtime_data, device, switch)
-        for device in entry.runtime_data.api.devices.values()
-        for switch in SWITCH_DESCRIPTIONS
+    async_setup_dynamic_entities(
+        entry,
+        async_add_devices,
+        lambda coordinator, device: (
+            NintendoParentalControlsSwitchEntity(coordinator, device, switch)
+            for switch in SWITCH_DESCRIPTIONS
+        ),
     )
 
 
