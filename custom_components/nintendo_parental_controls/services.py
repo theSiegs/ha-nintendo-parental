@@ -14,7 +14,10 @@ from pynintendoparental.exceptions import (
 )
 from pynintendoparental.player import Player
 
-from homeassistant.const import CommonServiceArgument
+try:
+    from homeassistant.const import CommonServiceArgument
+except ImportError:  # Home Assistant 2026.11 and older (fork only)
+    from .compat import CommonServiceArgument  # type: ignore[assignment]
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import (

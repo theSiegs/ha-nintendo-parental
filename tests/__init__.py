@@ -2,7 +2,15 @@
 
 from pytest_homeassistant.common import MockConfigEntry
 
+import homeassistant.const as ha_const
 from homeassistant.core import HomeAssistant
+
+from custom_components.nintendo_parental_controls.compat import CommonServiceArgument
+
+# Fork only: core's tests import CommonServiceArgument from homeassistant.const,
+# which Home Assistant 2026.11 does not have yet.
+if not hasattr(ha_const, "CommonServiceArgument"):
+    ha_const.CommonServiceArgument = CommonServiceArgument  # type: ignore[attr-defined]
 
 
 async def setup_integration(
