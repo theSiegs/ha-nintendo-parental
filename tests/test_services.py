@@ -4,6 +4,7 @@ from datetime import time
 from typing import Any
 from unittest.mock import AsyncMock
 
+import probatio
 from pynintendoparental.exceptions import (
     BedtimeOutOfRangeError,
     ExtraPlayingTimeActiveError,
@@ -29,6 +30,7 @@ from homeassistant.const import CommonServiceArgument
 from homeassistant.core import DOMAIN as HOMEASSISTANT_DOMAIN, Context, HomeAssistant
 from homeassistant.exceptions import ServiceValidationError, Unauthorized
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers.service import async_get_all_descriptions
 
 from . import setup_integration
 from .const import PLAYER_ENTITY_ID
@@ -57,6 +59,65 @@ async def test_add_bonus_time(
         blocking=True,
     )
     assert len(mock_nintendo_device.add_extra_time.mock_calls) == 1
+
+
+@pytest.mark.usefixtures("mock_nintendo_client")
+async def test_add_bonus_time_selector_matches_schema(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test the bonus time selector covers the values the action accepts."""
+    await setup_integration(hass, mock_config_entry)
+    descriptions = await async_get_all_descriptions(hass)
+    selector = descriptions[DOMAIN][NintendoParentalService.ADD_BONUS_TIME]["fields"][
+        NintendoParentalServiceArgument.BONUS_TIME
+    ]["selector"]["number"]
+    assert (selector["min"], selector["max"]) == (-1, 60)
+
+
+@pytest.mark.parametrize(
+    ("bonus_time", "valid"),
+    [
+        (-2, False),
+        (-1, True),
+        (0, False),
+        (4, False),
+        (5, True),
+        (60, True),
+        (61, False),
+    ],
+)
+async def test_add_bonus_time_range(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_client: AsyncMock,
+    mock_nintendo_device: AsyncMock,
+    bonus_time: int,
+    valid: bool,
+) -> None:
+    """Test add bonus time accepts 5 to 60 minutes, or -1 for unlimited."""
+    await setup_integration(hass, mock_config_entry)
+    device_entry = device_registry.async_get_device_by_identifier(
+        (DOMAIN, "testdevid"), mock_config_entry.entry_id
+    )
+    assert device_entry
+    call = hass.services.async_call(
+        DOMAIN,
+        NintendoParentalService.ADD_BONUS_TIME,
+        {
+            CommonServiceArgument.DEVICE_ID: device_entry.id,
+            NintendoParentalServiceArgument.BONUS_TIME: bonus_time,
+        },
+        blocking=True,
+    )
+    if valid:
+        await call
+        mock_nintendo_device.add_extra_time.assert_awaited_once_with(bonus_time)
+    else:
+        with pytest.raises(probatio.Invalid):
+            await call
+        mock_nintendo_device.add_extra_time.assert_not_called()
 
 
 @pytest.mark.parametrize(

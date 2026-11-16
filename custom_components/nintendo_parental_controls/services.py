@@ -33,6 +33,9 @@ from .const import (
     BEDTIME_ALARM_MIN,
     BEDTIME_END_TIME_MAX,
     BEDTIME_END_TIME_MIN,
+    BONUS_TIME_MAX,
+    BONUS_TIME_MIN,
+    BONUS_TIME_UNLIMITED,
     DOMAIN,
 )
 from .coordinator import NintendoParentalControlsConfigEntry
@@ -76,7 +79,12 @@ def async_setup_services(
                 probatio.Required(CommonServiceArgument.DEVICE_ID): cv.string,
                 probatio.Required(
                     NintendoParentalServiceArgument.BONUS_TIME
-                ): probatio.All(int, probatio.Range(min=5, max=30)),
+                ): probatio.Any(
+                    probatio.All(
+                        int, probatio.Range(min=BONUS_TIME_MIN, max=BONUS_TIME_MAX)
+                    ),
+                    BONUS_TIME_UNLIMITED,
+                ),
             }
         ),
     )
