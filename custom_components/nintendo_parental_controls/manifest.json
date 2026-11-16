@@ -11,6 +11,6 @@
   "issue_tracker": "https://github.com/theSiegs/ha-nintendo-parental/issues",
   "loggers": ["pynintendoauth", "pynintendoparental"],
   "quality_scale": "bronze",
-  "requirements": ["pynintendoauth==1.0.3", "pynintendoparental==2.6.2"],
+  "requirements": ["pynintendoauth==1.0.3", "pynintendoparental==2.6.3"],
   "version": "2026.12.0.dev1"
 }
