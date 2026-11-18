@@ -249,3 +249,32 @@ async def test_login_check_unreachable(
 
     assert not _reauth_flows(hass, mock_config_entry)
     assert not mock_config_entry.runtime_data.last_update_success
+
+
+async def test_monthly_summary_fetched_hourly(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_nintendo_client: AsyncMock,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """Test the monthly summary is fetched on setup, then at most hourly."""
+    await setup_integration(hass, mock_config_entry)
+
+    def monthly_flags() -> list[bool]:
+        return [
+            call.kwargs["monthly_summary"]
+            for call in mock_nintendo_client.update.call_args_list
+        ]
+
+    assert monthly_flags() == [True]
+
+    for _ in range(59):
+        freezer.tick(60)
+        async_fire_time_changed(hass)
+        await hass.async_block_till_done()
+    assert monthly_flags() == [True] + [False] * 59
+
+    freezer.tick(60)
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert monthly_flags()[-1] is True

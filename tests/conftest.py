@@ -98,7 +98,7 @@ def mock_nintendo_device(
     return mock
 
 
-async def _mock_update(client: AsyncMock) -> None:
+async def _mock_update(client: AsyncMock, **kwargs: bool) -> None:
     """Mimic NintendoParental.update, which runs device callbacks on success."""
     for device in client.devices.values():
         for device_callback in list(device.callbacks):

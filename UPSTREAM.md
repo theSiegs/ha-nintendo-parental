@@ -40,8 +40,9 @@ Library (`pantherale0/pynintendoparental`), prepared separately:
 
 | # | What | Status |
 | --- | --- | --- |
-| L-a | Players from daily summaries (fixes core #182387 together with 2) | Separate work |
-| L-b | `update(monthly_summary=...)` to skip the monthly summary | Separate work; unblocks 7 |
+| L-a | Players from daily summaries (fixes core #182387 together with 2) | Merged (#159), released in 2.7.0 |
+| L-b | `update(monthly_summary=...)` to skip the monthly summary | Merged (#160), released in 2.7.0 |
+| L-c | `discover_devices()` so callers update each device (for 3) | Merged (#161), released in 2.7.0 |
 
 ### Opening order
 
@@ -57,7 +58,7 @@ or take them over. Keep at most 2-3 core pull requests open at a time.
 | 1 | Inferred "playing" binary sensors + options flow | Dropped upstream: inferred state, a state attribute and a new platform in one PR. Hearth will infer playing from core's per-player minutes. Kept fork-only on `ha/core-dev-next-playing` until then |
 | 5 | Translated errors for every setter and action | Optional; would need rework to use the library's `error_key`. 10 and 13 handle their own errors |
 | 6 | `key_by_player_id` on `device_usage_report` | Held; nothing uses it |
-| 7 | Fetch the monthly summary at most hourly | Needs L-b released first |
+| 7 | Fetch the monthly summary at most hourly | Unblocked by 2.7.0; done fork-side on `ha/core-dev-next-playing`; for core it needs the 2.7.0 bump first |
 | 9 | Diagnostics | Optional |
 
 ## Rebuilding this repository

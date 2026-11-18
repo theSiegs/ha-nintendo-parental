@@ -37,8 +37,8 @@ If you have not set up the integration yet, add it from
 built-in integration.
 
 Runs on Home Assistant 2026.11 and later (a small fallback in `compat.py`
-covers what core `dev` uses from 2026.12). Library versions are the same as
-core's: `pynintendoparental==2.6.2` and `pynintendoauth==1.0.3`.
+covers what core `dev` uses from 2026.12). Libraries: `pynintendoparental==2.7.0`
+(core still pins 2.6.2) and `pynintendoauth==1.0.3`.
 
 ## Changes from core
 
@@ -104,10 +104,9 @@ profile, or players Nintendo only starts returning later needed an
 integration reload. Entities for them are now added on the next poll.
 ([core issue #182387](https://github.com/home-assistant/core/issues/182387))
 
-Note: the library (`pynintendoparental`) only learns about players from the
-latest monthly summary, which Nintendo returns as "not found" until a console
-has about a month of data. Until then no per-player entities exist; with this
-change they appear on their own once the summary becomes available.
+From `pynintendoparental` 2.7.0 the library also finds players in the daily
+summaries, so a console without a monthly summary yet (Nintendo returns "not
+found" until it has about a month of data) gets its per-player entities too.
 
 ### `add_bonus_time`: up to 60 minutes, or unlimited
 
@@ -206,11 +205,9 @@ for why. This branch keeps the playing sensors (above).
 
 ## Known limitations
 
-- **Monthly summary is still fetched on every poll.** `pynintendoparental`
-  (2.6.2, and 2.6.3, the latest release) fetches the monthly summary inside
-  `Device.update()` on every update, which costs two extra requests per
-  console every 60 seconds, and offers no way to skip it. Fetching it at most
-  hourly needs a library change; see [UPSTREAM.md](UPSTREAM.md).
+- None known beyond those of core. (The monthly summary, two extra requests
+  per console, is now fetched at most hourly instead of on every poll; a
+  console that has none yet still asks for it on each poll.)
 
 ## Development
 

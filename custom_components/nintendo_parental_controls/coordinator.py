@@ -28,6 +28,9 @@ type NintendoParentalControlsConfigEntry = ConfigEntry[NintendoUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 UPDATE_INTERVAL = timedelta(seconds=60)
+# The monthly summary changes once a day at most; fetching it costs two extra
+# requests per console, so it is not fetched on every poll.
+MONTHLY_SUMMARY_INTERVAL = timedelta(hours=1)
 
 
 @dataclass
@@ -76,6 +79,7 @@ class NintendoUpdateCoordinator(DataUpdateCoordinator[None]):
         self._device_last_update: dict[str, datetime] = {}
         self._watched_devices: set[str] = set()
         self._failed_devices: set[str] = set()
+        self._monthly_summary_fetched: datetime | None = None
         self.play_activity: dict[tuple[str, str | None], PlayActivity] = {}
 
     @property
@@ -179,8 +183,13 @@ class NintendoUpdateCoordinator(DataUpdateCoordinator[None]):
     async def _async_update_data(self) -> None:
         """Update data from Nintendo's API."""
         started = dt_util.utcnow()
+        # The library still fetches it for a console that has none yet.
+        monthly_summary = (
+            self._monthly_summary_fetched is None
+            or started - self._monthly_summary_fetched >= MONTHLY_SUMMARY_INTERVAL
+        )
         try:
-            await self.api.update()
+            await self.api.update(monthly_summary=monthly_summary)
         except InvalidOAuthConfigurationException as err:
             # pylint: disable-next=home-assistant-exception-translation-key-missing
             raise ConfigEntryError(
@@ -206,6 +215,8 @@ class NintendoUpdateCoordinator(DataUpdateCoordinator[None]):
                 await self._async_validate_session_token()
                 raise UpdateFailed from err
             raise UpdateFailed(retry_after=900) from err
+        if monthly_summary:
+            self._monthly_summary_fetched = started
         self._check_device_updates(started)
         # Devices found in this poll are watched from the next one on.
         self._watch_devices()
