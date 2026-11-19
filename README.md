@@ -206,7 +206,7 @@ for why. This branch keeps the playing sensors (above).
 ## Known limitations
 
 - None known beyond those of core. (The monthly summary, two extra requests
-  per console, is now fetched at most hourly instead of on every poll; a
+  per console, is now fetched once a day instead of on every poll; a
   console that has none yet still asks for it on each poll.)
 
 ## Development

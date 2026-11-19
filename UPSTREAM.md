@@ -58,7 +58,7 @@ or take them over. Keep at most 2-3 core pull requests open at a time.
 | 1 | Inferred "playing" binary sensors + options flow | Dropped upstream: inferred state, a state attribute and a new platform in one PR. Hearth will infer playing from core's per-player minutes. Kept fork-only on `ha/core-dev-next-playing` until then |
 | 5 | Translated errors for every setter and action | Optional; would need rework to use the library's `error_key`. 10 and 13 handle their own errors |
 | 6 | `key_by_player_id` on `device_usage_report` | Held; nothing uses it |
-| 7 | Fetch the monthly summary at most hourly | Unblocked by 2.7.0; done fork-side on `ha/core-dev-next-playing`; for core it needs the 2.7.0 bump first |
+| 7 | Fetch the monthly summary once a day (maintainer suggested 12-24 h) | Unblocked by 2.7.0; done fork-side on `ha/core-dev-next-playing`; for core it needs the 2.7.0 bump first |
 | 9 | Diagnostics | Optional |
 
 ## Rebuilding this repository

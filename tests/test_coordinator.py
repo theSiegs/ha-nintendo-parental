@@ -1,5 +1,6 @@
 """Test coordinator error handling."""
 
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 from freezegun.api import FrozenDateTimeFactory
@@ -251,13 +252,13 @@ async def test_login_check_unreachable(
     assert not mock_config_entry.runtime_data.last_update_success
 
 
-async def test_monthly_summary_fetched_hourly(
+async def test_monthly_summary_fetched_daily(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_nintendo_client: AsyncMock,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """Test the monthly summary is fetched on setup, then at most hourly."""
+    """Test the monthly summary is fetched on setup, then once a day."""
     await setup_integration(hass, mock_config_entry)
 
     def monthly_flags() -> list[bool]:
@@ -268,13 +269,13 @@ async def test_monthly_summary_fetched_hourly(
 
     assert monthly_flags() == [True]
 
-    for _ in range(59):
+    for _ in range(3):
         freezer.tick(60)
         async_fire_time_changed(hass)
         await hass.async_block_till_done()
-    assert monthly_flags() == [True] + [False] * 59
+    assert monthly_flags() == [True, False, False, False]
 
-    freezer.tick(60)
+    freezer.tick(timedelta(hours=24))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
     assert monthly_flags()[-1] is True

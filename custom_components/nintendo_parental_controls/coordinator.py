@@ -28,9 +28,10 @@ type NintendoParentalControlsConfigEntry = ConfigEntry[NintendoUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 UPDATE_INTERVAL = timedelta(seconds=60)
-# The monthly summary changes once a day at most; fetching it costs two extra
-# requests per console, so it is not fetched on every poll.
-MONTHLY_SUMMARY_INTERVAL = timedelta(hours=1)
+# The monthly summary covers the latest finished month, so it changes about
+# once a month. Fetching it costs two extra requests per console, so it is
+# fetched once a day instead of on every poll.
+MONTHLY_SUMMARY_INTERVAL = timedelta(hours=24)
 
 
 @dataclass
